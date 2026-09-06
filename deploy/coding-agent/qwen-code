@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+deployment_dir=/home/ubuntu/kariyama/BreakLLM/deploy/coding-agent
+runtime=/home/ubuntu/kariyama/BreakLLM/.coding-agent
+export PATH="/home/ubuntu/.local/bin:/home/ubuntu/.nvm/versions/node/v24.15.0/bin:$PATH"
+if ! curl --fail --silent --max-time 3 http://127.0.0.1:8787/health >/dev/null; then
+  echo 'Qwen server is not ready. Check: systemctl --user status breakllm-coding-model' >&2
+  exit 1
+fi
+export OPENCODE_CONFIG_CONTENT
+OPENCODE_CONFIG_CONTENT=$(cat "$deployment_dir/opencode.json")
+exec "$runtime/bin/opencode" "$@"

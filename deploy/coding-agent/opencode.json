@@ -1,0 +1,37 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "hb-gpu-0/qwen3.8-27b-turbo",
+  "small_model": "hb-gpu-0/qwen3.8-27b-turbo",
+  "enabled_providers": ["hb-gpu-0"],
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "hb-gpu-0": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "hb-gpu-0 llama.cpp",
+      "options": {
+        "baseURL": "http://127.0.0.1:8787/v1",
+        "timeout": 600000
+      },
+      "models": {
+        "qwen3.8-27b-turbo": {
+          "name": "Qwen3.8 27B Turbo Cold Fusion (Q5_K_M)",
+          "family": "qwen",
+          "tool_call": true,
+          "reasoning": true,
+          "interleaved": {"field": "reasoning_content"},
+          "temperature": true,
+          "limit": {"context": 32768, "output": 8192},
+          "modalities": {"input": ["text"], "output": ["text"]},
+          "cost": {"input": 0, "output": 0}
+        }
+      }
+    }
+  },
+  "agent": {
+    "build": {"temperature": 0.6, "top_p": 0.95},
+    "plan": {"temperature": 0.6, "top_p": 0.95}
+  },
+  "compaction": {"auto": true, "prune": true, "reserved": 4096},
+  "watcher": {"ignore": ["**/.coding-agent/**"]}
+}

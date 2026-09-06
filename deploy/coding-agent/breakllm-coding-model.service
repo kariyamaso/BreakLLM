@@ -1,0 +1,17 @@
+[Unit]
+Description=Qwen3.8 27B Turbo coding model (llama.cpp CUDA)
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+WorkingDirectory=/home/ubuntu/kariyama/BreakLLM
+ExecStart=/bin/bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/serve.sh
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

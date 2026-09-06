@@ -129,6 +129,10 @@ run standard benchmarks on it, or any combination of those actions.
 
 ## Research features
 
+For development on hb-gpu-0, the [Qwen coding agent guide](docs/coding-agent.md)
+describes OpenCode with the locally hosted Qwen3.8 27B model and the dedicated
+development checkout. Run `bash deploy/coding-agent/connect.sh` to open it.
+
 The fork also provides an **OpenUI research chat service** with selectable input
 interventions, actual tool calls, live before/after comparisons, and an exported
 [measured HTML report](reports/comparison.html). See the
