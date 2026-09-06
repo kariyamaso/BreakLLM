@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-06",
+  "created_at": "2026-09-06T06:25:01.765539+00:00",
+  "auditor": "independent_codex_review_agent_same_model_family",
+  "overall_verdict": "warn",
+  "integrity_status": "pass",
+  "reviewer_method": {
+    "separate_agent": true,
+    "same_model_family_as_executor": true,
+    "cross_model_review": false,
+    "human_evaluation": false,
+    "note": "指定の異なるモデル系統のバックエンドが利用不可だったため、独立した別エージェントがコードと成果物を直接監査。cross-model検証とは主張しない。"
+  },
+  "checks": {
+    "A_gt_provenance": {
+      "status": "pass",
+      "details": "3原本の固定SHA-256を照合。CSV/JSONから独立に再構成した全1,759行が評価JSONと完全一致。応答判定は明示されたモデル代理評価。",
+      "evidence": [
+        "src/heretic/chat_service/safety_datasets.py:183",
+        "reports/safety-ja/summary.json:13"
+      ]
+    },
+    "B_score_normalization": {
+      "status": "pass",
+      "details": "安全・危険の分母は完了かつ判定可能な1,705応答。打ち切り54件は未評価。拒否の分母を別管理。自己出力の最大値等による正規化なし。",
+      "evidence": [
+        "src/heretic/chat_service/safety_benchmark.py:84",
+        "src/heretic/chat_service/safety_benchmark.py:135",
+        "reports/safety-ja/summary.json:103"
+      ]
+    },
+    "C_result_existence": {
+      "status": "pass",
+      "details": "runはcompleteで完了時刻あり。全選択ID・全質問/応答/判定ハッシュ・モデルrevision記録・集計のrun/datasetハッシュを照合。全体・3データ・19カテゴリの全指標と日本語表の件数・丸め値が独立再計算と一致。",
+      "evidence": [
+        "prompt-runs/safety-ja/full-1024/run.json:4",
+        "prompt-runs/safety-ja/full-1024/run.json:44033",
+        "src/heretic/chat_service/safety_benchmark.py:52",
+        "reports/safety-ja/summary.json:11",
+        "reports/safety-ja/report.ja.md:14",
+        "reports/safety-ja/report.ja.md:23"
+      ]
+    },
+    "D_dead_code": {
+      "status": "pass",
+      "details": "解析・集計関数は収集/出力経路から呼ばれ、対応する保存結果が存在。未使用指標を検出せず。安全評価テスト16件成功。",
+      "evidence": [
+        "src/heretic/chat_service/safety_benchmark.py:176",
+        "src/heretic/chat_service/safety_benchmark.py:469",
+        "src/heretic/chat_service/safety_benchmark.py:506",
+        "tests/test_safety_benchmark.py:64",
+        "tests/test_safety_datasets.py:173"
+      ]
+    },
+    "E_scope": {
+      "status": "warn",
+      "details": "生成モデル1種・判定器1種・seed42・1設定の固定実行。HarmBenchの31/300件を含む54応答が打ち切り。未評価の発生が無作為とは確認しておらず、完了応答の率を全応答や他モデル・他言語に一般化できない。既存文書に過大な包括性主張はない。",
+      "evidence": [
+        "reports/safety-ja/summary.json:55",
+        "reports/safety-ja/summary.json:148",
+        "reports/safety-ja/report.ja.md:29"
+      ]
+    },
+    "F_eval_type": {
+      "status": "pass",
+      "classification": "synthetic_proxy",
+      "recorded_type": "guard_model_proxy",
+      "details": "別チェックポイントのモデルによる自動判定。公式スコア・jailbreak ASR・人手評価はnullで未測定と明示。",
+      "evidence": [
+        "reports/safety-ja/summary.json:5",
+        "reports/safety-ja/report.ja.md:5",
+        "docs/safety_benchmark.md:80"
+      ]
+    }
+  },
+  "verified_totals": {
+    "requested": 1759,
+    "generated": 1759,
+    "complete": 1705,
+    "truncated": 54,
+    "Safe": 1508,
+    "Unsafe": 143,
+    "Controversial": 54,
+    "Unknown": 54,
+    "refusal_yes": 941,
+    "refusal_judged": 1705,
+    "judgment_coverage": 0.969300739056282
+  },
+  "verification": {
+    "source_files_authenticated": 3,
+    "canonical_rows_reconstructed": 1759,
+    "response_hashes_verified": 1759,
+    "judgments_bound_to_prompt_and_response": 1759,
+    "guard_eos_count": 1759,
+    "guard_error_count": 0,
+    "dataset_groups_recomputed": 3,
+    "category_groups_recomputed": 19,
+    "all_summary_metrics_match": true,
+    "japanese_report_tables_match": true,
+    "tests_passed": 16,
+    "tests_failed": 0,
+    "test_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_safety*.py' -v",
+    "run_completed_at": "2026-09-06T06:20:56.113714+00:00",
+    "run_object_sha256": "1ea3fd1815ba392c88a3202c7c96c0f8ee70d53b82001106c5af38e89d21094a"
+  },
+  "claim_impact": {
+    "executed_1759_complete_1705_truncated_54": "supported",
+    "published_guard_rates": "supported_only_as_conditional_proxy_metrics",
+    "all_939_japanese_dataset_responses_contain_kana": "supported_as_script_heuristic_only",
+    "official_score_or_human_confirmed_safety": "not_measured"
+  },
+  "action_items": [
+    "数値の訂正は不要。既存レポートどおり、自動判定率に分母・カバレッジ・打ち切り数を併記する。"
+  ],
+  "limitations": [
+    "単一設定の固定実行で、未評価応答を含む全応答の安全率ではない。",
+    "人手評価、判定器の誤分類率・校正、正確性・有用性・過剰拒否は未測定。",
+    "同一モデル系統の別エージェントによる監査であり、cross-model監査は未実施。",
+    "GPU推論の独立再実行、モデル重み全体の独立照合は未実施。",
+    "独立した実験トラッカーは提示されていないため、完了はrun.jsonのstatusとcompleted_atで確認。"
+  ],
+  "audited_file_sha256": {
+    "src/heretic/chat_service/safety_benchmark.py": "7c09edf44fb5713cfbce653c16e61038d8adf7558594b73d65d84e0f24a986b1",
+    "src/heretic/chat_service/safety_datasets.py": "41f9dcc7ba514e83433e718308999a86c998ecfe4ae989c00082393cce3aba07",
+    "tests/test_safety_benchmark.py": "aa479214c32b9d93fd33eb176f84ee249cb8c177fc2d4b2bac62c32501844f46",
+    "tests/test_safety_datasets.py": "e70d1a03228ec666d301b18ff74ef355ff01e6d97332396c753b9e76b2329492",
+    "docs/safety_benchmark.md": "b978d9b12e69c9a1cbd0647904778e2150bd6167a40ba13da722d07ffc6b3ff9",
+    "prompt-runs/safety-ja/dataset.json": "7cf39b47b7ce251d68c5f3946815d16fe8a3dfe61498825c19fd26febf395245",
+    "prompt-runs/safety-ja/full-1024/run.json": "1eb7c0baa208dcd438e84ae89033bebc2551a6cbfc1b989bc54aa35dc20b8fa1",
+    "reports/safety-ja/summary.json": "c913b66c12ec96cbbb394edff4a0043886a2a544f103ba84df6807fbdd967535",
+    "reports/safety-ja/report.ja.md": "0a1276a2d19e566e61d9eb0dcb68607a53919f7183b4e7603d19f7b6f54ad0c1",
+    "prompt-runs/safety-ja/sources/advbench-098262edf85f807224e70ecd87b9d83716bf6b73-harmful_behaviors.csv": "6cd1a5c63c07610d7eb67307772ee5606017ee950b5770ab288a2c487489d3e1",
+    "prompt-runs/safety-ja/sources/do_not_answer_ja-8885330ded1853396458e8565c28ac62d7110281-dna_ja_1k.json": "7b6c778d7e36add8ddceb63ad0592afb6a38b3a0e1a92a4eaba0b735f3fbb5f0",
+    "prompt-runs/safety-ja/sources/harmbench-8e1604d1171fe8a48d8febecd22f600e462bdcdd-harmbench_behaviors_text_all.csv": "8d81accedd38eaaf8b760618622bb888417d1fd0c86eba65c427a16f1cbb4afc"
+  }
+}

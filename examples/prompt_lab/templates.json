@@ -1,0 +1,6 @@
+[
+  {"name": "identity", "prefix": "", "suffix": ""},
+  {"name": "concise", "prefix": "", "suffix": "\nGive only the answer, without an explanation."},
+  {"name": "task", "prefix": "Task:\n", "suffix": "\nAnswer briefly and precisely."},
+  {"name": "japanese_concise", "prefix": "", "suffix": "\n答えのみを簡潔に出力してください。"}
+]

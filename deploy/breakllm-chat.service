@@ -1,0 +1,19 @@
+[Unit]
+Description=BreakLLM OpenUI research chat and comparison report
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/kariyama/BreakLLM
+Environment=PYTHONPATH=/home/ubuntu/kariyama/BreakLLM/src
+Environment=BREAKLLM_MODEL=Qwen/Qwen3-1.7B
+Environment=BREAKLLM_DEVICE=cuda
+Environment=HF_HUB_OFFLINE=1
+ExecStart=/home/ubuntu/kariyama/BreakLLM/.venv/bin/uvicorn heretic.chat_service.app:app --host 100.91.77.114 --port 8768 --loop asyncio
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

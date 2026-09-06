@@ -129,6 +129,27 @@ run standard benchmarks on it, or any combination of those actions.
 
 ## Research features
 
+The fork also provides an **OpenUI research chat service** with selectable input
+interventions, actual tool calls, live before/after comparisons, and an exported
+[measured HTML report](reports/comparison.html). See the
+[deployment and experiment guide](docs/chat_service.md) for the running service,
+reproduction commands, and the limits of the compact research adaptations.
+
+This fork also includes **Prompt Lab**, an independent experiment CLI for learning
+continuous prompt tokens while freezing the model, selecting text templates, and
+comparing generated responses on held-out data. See the
+[Japanese research and usage guide](docs/prompt_lab.md) for the distinction from
+Heretic's weight interventions, related work, commands, and current limitations.
+
+```sh
+uv run heretic-prompt --help
+```
+
+A separate fixed-model safety evaluator imports pinned AdvBench, HarmBench text,
+and Do-Not-Answer-Ja questions and exports Japanese reports with independent guard
+model predictions. It does not train attacks or report official jailbreak ASR.
+See the [Japanese safety evaluation guide](docs/safety_benchmark.md).
+
 In addition to its primary function of removing model censorship, Heretic also
 provides features designed to support research into the semantics of model internals
 (interpretability). To use those features, you need to install Heretic with the

@@ -1,0 +1,8 @@
+{"id":"train-1","prompt":"What is two plus two?","target":"4","split":"train"}
+{"id":"train-2","prompt":"What is three plus three?","target":"6","split":"train"}
+{"id":"train-3","prompt":"What is one plus five?","target":"6","split":"train"}
+{"id":"train-4","prompt":"What is four plus three?","target":"7","split":"train"}
+{"id":"validation-1","prompt":"What is two plus three?","target":"5","split":"validation"}
+{"id":"validation-2","prompt":"What is four plus four?","target":"8","split":"validation"}
+{"id":"test-1","prompt":"What is three plus four?","target":"7","split":"test"}
+{"id":"test-2","prompt":"What is five plus four?","target":"9","split":"test"}
