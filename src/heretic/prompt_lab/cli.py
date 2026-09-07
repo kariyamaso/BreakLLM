@@ -17,6 +17,7 @@ from .data import (
     select_split,
     write_json,
 )
+from .engine import prompt_key
 
 
 def parser() -> argparse.ArgumentParser:
@@ -24,14 +25,14 @@ def parser() -> argparse.ArgumentParser:
         description="Optimize prompts with a frozen local causal LM."
     )
     commands = root.add_subparsers(dest="command", required=True)
-    for command in ("search", "train", "evaluate", "generate"):
+    for command in ("search", "train", "evaluate", "generate", "gcg", "autodan", "pair"):
         sub = commands.add_parser(command)
         sub.add_argument("--device", default="auto", help="auto, cpu, cuda[:N], or mps")
         sub.add_argument(
             "--dtype", choices=["float32", "float16", "bfloat16"], default="float32"
         )
         sub.add_argument("--local-files-only", action="store_true")
-        if command in {"search", "train"}:
+        if command in {"search", "train", "gcg", "autodan", "pair"}:
             sub.add_argument("--model", required=True)
             sub.add_argument("--revision")
             sub.add_argument("--system", default="")
@@ -60,6 +61,19 @@ def parser() -> argparse.ArgumentParser:
             sub.add_argument("--template-artifact", type=Path)
         if command == "generate":
             sub.add_argument("--prompt", required=True)
+        if command == "gcg":
+            sub.add_argument("--suffix-length", type=int, default=20)
+            sub.add_argument("--max-iterations", type=int, default=50)
+            sub.add_argument("--vocab-size", type=int, default=512)
+            sub.add_argument("--top-k", type=int, default=50)
+            sub.add_argument("--seed", type=int, default=0)
+        if command == "autodan":
+            sub.add_argument("--num-variants", type=int, default=5)
+            sub.add_argument("--max-iterations", type=int, default=10)
+            sub.add_argument("--seed", type=int, default=0)
+        if command == "pair":
+            sub.add_argument("--max-iterations", type=int, default=10)
+            sub.add_argument("--seed", type=int, default=0)
     render = commands.add_parser(
         "render", help="Render a text artifact without loading a model"
     )
@@ -136,7 +150,8 @@ def run(args: argparse.Namespace) -> None:
     if args.command == "evaluate":
         if artifact is None:
             raise ValueError("Evaluation requires an artifact.")
-        assert_unseen(select_split(examples, "test"), artifact)
+        if "selection_data" in artifact:
+            assert_unseen(select_split(examples, "test"), artifact)
     if args.command in {"evaluate", "generate"}:
         if artifact is None:
             raise ValueError("An artifact is required.")
@@ -212,6 +227,112 @@ def run(args: argparse.Namespace) -> None:
         args.output.mkdir(parents=True, exist_ok=False)
         write_json(args.output / "report.json", report)
         print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
+        return
+    if args.command in {"gcg", "autodan", "pair"}:
+        from .adversarial import (
+            AutoDANConfig,
+            GCGConfig,
+            PAIRConfig,
+            autodan_optimize,
+            gcg_optimize,
+            pair_optimize,
+        )
+
+        select_split(examples, "train")
+        select_split(examples, "validation")
+        train = select_split(examples, "train")
+        validation = select_split(examples, "validation")
+
+        if args.command == "gcg":
+            config = GCGConfig(
+                suffix_length=args.suffix_length,
+                max_iterations=args.max_iterations,
+                vocab_size=args.vocab_size,
+                top_k=args.top_k,
+                seed=args.seed,
+            )
+            suffix, history = gcg_optimize(
+                engine,
+                train,
+                template,
+                config,
+                progress=lambda row: print(json.dumps(row), file=sys.stderr, flush=True),
+            )
+        elif args.command == "autodan":
+            config = AutoDANConfig(
+                num_variants=args.num_variants,
+                max_iterations=args.max_iterations,
+                seed=args.seed,
+            )
+
+            def llm_generate(prompt):
+                return engine.generate(prompt, template, None, 128)
+
+            prompt, history = autodan_optimize(
+                engine,
+                train,
+                template,
+                config,
+                llm_generate,
+                progress=lambda row: print(json.dumps(row), file=sys.stderr, flush=True),
+            )
+        else:  # pair
+            config = PAIRConfig(
+                max_iterations=args.max_iterations,
+                seed=args.seed,
+            )
+
+            def llm_generate(prompt):
+                return engine.generate(prompt, template, None, 128)
+
+            prompt, history = pair_optimize(
+                engine,
+                train,
+                template,
+                config,
+                llm_generate,
+                progress=lambda row: print(json.dumps(row), file=sys.stderr, flush=True),
+            )
+
+        args.output.mkdir(parents=True, exist_ok=False)
+        selection_data = {
+            "ids": [e.id for e in train],
+            "prompt_sha256": [prompt_key(e.prompt) for e in train],
+        }
+        if args.command == "gcg":
+            artifact = {
+                "format_version": 1,
+                "kind": "text",
+                "engine": engine.identity(),
+                "template": {"prefix": "", "suffix": suffix},
+                "training": {"command": "gcg", "iterations": len(history)},
+                "selection_data": selection_data,
+            }
+            write_json(args.output / "suffix.json", {"suffix": suffix})
+            print(f"Optimized suffix: {suffix}")
+        else:
+            artifact = {
+                "format_version": 1,
+                "kind": "text",
+                "engine": engine.identity(),
+                "template": {"prefix": prompt, "suffix": ""},
+                "training": {"command": args.command, "iterations": len(history)},
+                "selection_data": selection_data,
+            }
+            write_json(args.output / "prompt.json", {"prompt": prompt})
+            print(f"Optimized prompt: {prompt}")
+        write_json(args.output / "artifact.json", artifact)
+        write_json(
+            args.output / "history.json",
+            {
+                "command": args.command,
+                "history": history,
+                "engine": engine.identity(),
+                "environment": environment,
+                "train_data_sha256": dataset_hash(train),
+                "validation_data_sha256": dataset_hash(validation),
+            },
+        )
         return
     validation = select_split(examples, "validation")
     selected_data = validation

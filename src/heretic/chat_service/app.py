@@ -37,7 +37,8 @@ class ChatRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app):
-    from .runtime import JAPANESE_SYSTEM, Runtime
+    from .jailbreak_chat import JAPANESE_SYSTEM, JailbreakChat
+    from .runtime import Runtime
 
     app.state.runtime = await asyncio.to_thread(
         Runtime,
@@ -45,6 +46,13 @@ async def lifespan(app):
         REPORT_ROOT / "methods",
         os.environ.get("BREAKLLM_DEVICE", "cuda"),
         os.environ.get("BREAKLLM_SYSTEM_PROMPT", JAPANESE_SYSTEM),
+    )
+    app.state.jailbreak_chat = await asyncio.to_thread(
+        JailbreakChat,
+        os.environ.get("BREAKLLM_MODEL", "Qwen/Qwen3-1.7B"),
+        device=os.environ.get("BREAKLLM_DEVICE", "cuda"),
+        system=os.environ.get("BREAKLLM_SYSTEM_PROMPT", JAPANESE_SYSTEM),
+        root=REPORT_ROOT / "jailbreak",
     )
     app.state.busy = asyncio.Lock()
     runtime = app.state.runtime
@@ -253,6 +261,38 @@ async def chat(request: ChatRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+class JailbreakChatRequest(BaseModel):
+    messages: list[Message] = Field(min_length=1, max_length=24)
+    max_attempts: int = Field(default=3, ge=1, le=10)
+
+
+@app.post("/api/jailbreak/chat")
+async def jailbreak_chat(request: JailbreakChatRequest):
+    """Chat with automatic refusal-triggered optimization."""
+    user_input = request.messages[-1].content
+    jailbreak = app.state.jailbreak_chat
+
+    def run_jailbreak():
+        return jailbreak.chat_with_optimization(user_input, request.max_attempts)
+
+    result = await asyncio.to_thread(run_jailbreak)
+    return result
+
+
+@app.get("/api/jailbreak/status")
+async def jailbreak_status():
+    """Get jailbreak optimization statistics."""
+    jailbreak = app.state.jailbreak_chat
+    return jailbreak.get_stats()
+
+
+@app.get("/api/jailbreak/history")
+async def jailbreak_history():
+    """Get jailbreak optimization history."""
+    jailbreak = app.state.jailbreak_chat
+    return jailbreak.get_history()
 
 
 UI_ROOT = ROOT / "chat-ui/dist"
