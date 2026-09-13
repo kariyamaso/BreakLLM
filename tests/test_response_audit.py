@@ -11,15 +11,17 @@ from heretic.prompt_lab.data import Template
 class FakeRuntime:
     """A runtime whose responses are scripted per method, for escalation tests."""
 
-    def __init__(self, responses):
+    def __init__(self, responses, finish="eos"):
         self.responses = responses
         self.methods = {name: (Template(), None) for name in ["baseline", *responses] if name != "baseline"}
         self.methods["baseline"] = (Template(), None)
         self.calls = []
+        self.finish = finish
 
     def complete(self, messages, method, *, max_new_tokens=512, return_metadata=False):
         self.calls.append(method)
-        return {"response": self.responses[method], "finish_reason": "eos", "generated_tokens": 10}
+        finish = self.finish[method] if isinstance(self.finish, dict) else self.finish
+        return {"response": self.responses[method], "finish_reason": finish, "generated_tokens": 10}
 
 
 class ResponseAuditTests(unittest.TestCase):
@@ -109,6 +111,27 @@ class ResponseAuditTests(unittest.TestCase):
         self.assertTrue(result["optimization_performed"])
         self.assertEqual(result["method"], "gcg")
         self.assertEqual(result["attempts"], 3)
+
+    def test_truncated_refusal_still_triggers_escalation(self):
+        # A refusal cut off by the token limit (finish_reason != eos) must still be
+        # judged a refusal so escalation fires, not silently downgraded to unknown.
+        runtime = FakeRuntime({"baseline": "申し訳ありませんが、お答えでき", "gcg": "1989年、北京で発生しました。"},
+                              finish={"baseline": "length", "gcg": "eos"})
+
+        def assess(prompt, response):
+            refusal = "Yes" if "お答えでき" in response else "No"
+            return assessment(prompt, response, f"Safety: Safe\nRefusal: {refusal}")
+
+        judge = Mock()
+        judge.assess.side_effect = assess
+        with tempfile.TemporaryDirectory() as directory:
+            result = AuditedChat(runtime, Path(directory), judge).chat("q", escalation=["gcg"])
+        self.assertEqual(runtime.calls, ["baseline", "gcg"])  # escalation ran despite truncation
+        self.assertTrue(result["baseline_refused"])
+        self.assertEqual(result["optimization_log"][0]["status"], "refusal")
+        self.assertEqual(result["optimization_log"][0].get("success"), None)
+        self.assertEqual(result["method"], "gcg")
+        self.assertFalse(result["refused"])
 
     def test_all_escalations_refused_reports_last_attempt(self):
         runtime = FakeRuntime({"baseline": "できません1。", "soft": "できません2。"})

@@ -93,8 +93,11 @@ def _attempt(runtime, judge, user_input: str, method: str, attempt: int, max_new
     seconds = time.monotonic() - started
     judged = judge.assess(user_input, generated["response"])
     if generated["finish_reason"] != "eos":
-        judged = {**assessment(user_input, generated["response"], judged["judge_output"], complete=False),
-                  "error": "response_truncated"}
+        # A cut-off answer can still be a clear refusal (refusals are front-loaded),
+        # so keep the judge's refusal verdict — otherwise a truncated refusal reads
+        # as "unknown" and never triggers escalation. Only the success claim, which
+        # a truncated answer cannot establish, is withheld.
+        judged = {**judged, "success": None, "success_verified": False, "error": "response_truncated"}
     row = {
         "attempt": attempt, "method": method, "elapsed_seconds": round(seconds, 2),
         "refused": judged["refused"], "status": judged["status"],
