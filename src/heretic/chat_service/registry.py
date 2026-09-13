@@ -22,6 +22,29 @@ def parse_model_list(value: str | None, default: str) -> list[str]:
     return list(dict.fromkeys(ids))
 
 
+def load_catalog(path: Path) -> dict[str, dict]:
+    """Read a models.json catalog of imported models keyed by served id.
+
+    Each entry is ``{"id", "label"?, "decensored"?}``; ``id`` is what the runtime
+    loads (a Hugging Face id or a local path to weights, e.g. one produced by the
+    weight-level decensoring script). Absent or malformed files yield an empty
+    catalog so the service still starts on the default model alone."""
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    catalog: dict[str, dict] = {}
+    for entry in entries if isinstance(entries, list) else []:
+        model_id = entry.get("id") if isinstance(entry, dict) else None
+        if not isinstance(model_id, str) or not model_id.strip():
+            continue
+        catalog[model_id] = {
+            "label": entry.get("label") or model_label(model_id),
+            "decensored": bool(entry.get("decensored", False)),
+        }
+    return catalog
+
+
 def model_label(model_id: str) -> str:
     return model_id.rstrip("/").split("/")[-1]
 
@@ -34,6 +57,7 @@ class ModelRegistry:
         *,
         max_loaded: int = 1,
         supports_images: bool = False,
+        catalog: dict[str, dict] | None = None,
     ):
         if not model_ids:
             raise ValueError("At least one model id is required.")
@@ -44,6 +68,7 @@ class ModelRegistry:
         self.loader = loader
         self.max_loaded = max_loaded
         self.supports_images = supports_images
+        self.catalog = catalog or {}
         self.lock = threading.Lock()
         self.loaded: OrderedDict[str, Any] = OrderedDict()
         self.contexts: dict[str, dict] = {}
@@ -92,7 +117,8 @@ class ModelRegistry:
         return [
             {
                 "id": model_id,
-                "label": model_label(model_id),
+                "label": self.catalog.get(model_id, {}).get("label", model_label(model_id)),
+                "decensored": self.catalog.get(model_id, {}).get("decensored", False),
                 "default": model_id == self.default_id,
                 "loaded": model_id in self.loaded,
                 "supports_images": self.supports_images,

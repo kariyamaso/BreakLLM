@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .attachments import MAX_ATTACHMENTS, ContentPart, flatten_content
-from .registry import ModelRegistry, artifact_root_for, parse_model_list
+from .registry import ModelRegistry, artifact_root_for, load_catalog, parse_model_list
 
 ROOT = Path(__file__).resolve().parents[3]
 REPORT_ROOT = Path(
@@ -69,7 +69,14 @@ async def lifespan(app):
     from .runtime import JAPANESE_SYSTEM, Runtime
 
     default_model = os.environ.get("BREAKLLM_MODEL", "Qwen/Qwen3-1.7B")
+    # Models come from BREAKLLM_MODELS and from the imported-model catalog
+    # (models.json), which is where the weight-level decensoring script registers
+    # its output so decensored checkpoints appear in the UI automatically.
+    catalog = load_catalog(REPORT_ROOT / "models.json")
     model_ids = parse_model_list(os.environ.get("BREAKLLM_MODELS"), default_model)
+    for catalog_id in catalog:
+        if catalog_id not in model_ids:
+            model_ids.append(catalog_id)
     device = os.environ.get("BREAKLLM_DEVICE", "cuda")
     system = os.environ.get("BREAKLLM_SYSTEM_PROMPT", JAPANESE_SYSTEM)
 
@@ -80,7 +87,8 @@ async def lifespan(app):
 
     # The GPU is shared; keep one model resident unless configured otherwise.
     app.state.registry = ModelRegistry(
-        model_ids, load, max_loaded=int(os.environ.get("BREAKLLM_MAX_LOADED", "1"))
+        model_ids, load, max_loaded=int(os.environ.get("BREAKLLM_MAX_LOADED", "1")),
+        catalog=catalog,
     )
     await asyncio.to_thread(app.state.registry.get, default_model)
     app.state.runtime = DefaultRuntime(app.state.registry)
@@ -356,16 +364,26 @@ class JailbreakChatRequest(BaseModel):
     messages: list[Message] = Field(min_length=1, max_length=24)
     max_attempts: int = Field(default=3, ge=1, le=10)
     max_new_tokens: int = Field(default=512, ge=16, le=768)
+    # Ordered prompt methods to escalate through when the baseline is refused;
+    # null uses the default order. Only methods the model has loaded are used.
+    escalation: list[str] | None = None
 
 
 @app.post("/api/jailbreak/chat")
 async def jailbreak_chat(request: JailbreakChatRequest):
-    """Generate once, then assess refusal separately from task success."""
+    """Answer once at baseline; if the judge calls it a refusal, escalate through
+    the model's pre-trained prompt interventions until one is not refused."""
+    from .response_audit import escalation_for
+
     validate_chat(ChatRequest(messages=request.messages))
     user_input = request.messages[-1].text()
     jailbreak = app.state.jailbreak_chat
+    runtime = await runtime_for(None)
+    escalation = escalation_for(runtime, request.escalation)
     async with app.state.busy:
-        task = asyncio.create_task(asyncio.to_thread(jailbreak.chat, user_input, request.max_new_tokens))
+        task = asyncio.create_task(
+            asyncio.to_thread(jailbreak.chat, user_input, request.max_new_tokens, escalation)
+        )
         try:
             return await asyncio.shield(task)
         except asyncio.CancelledError:

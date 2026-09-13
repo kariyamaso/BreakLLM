@@ -4,7 +4,22 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from heretic.chat_service.response_audit import AuditedChat, assessment
+from heretic.chat_service.response_audit import AuditedChat, assessment, escalation_for
+from heretic.prompt_lab.data import Template
+
+
+class FakeRuntime:
+    """A runtime whose responses are scripted per method, for escalation tests."""
+
+    def __init__(self, responses):
+        self.responses = responses
+        self.methods = {name: (Template(), None) for name in ["baseline", *responses] if name != "baseline"}
+        self.methods["baseline"] = (Template(), None)
+        self.calls = []
+
+    def complete(self, messages, method, *, max_new_tokens=512, return_metadata=False):
+        self.calls.append(method)
+        return {"response": self.responses[method], "finish_reason": "eos", "generated_tokens": 10}
 
 
 class ResponseAuditTests(unittest.TestCase):
@@ -53,6 +68,62 @@ class ResponseAuditTests(unittest.TestCase):
             self.assertEqual(chat.get_stats()["total"], 0)
             self.assertIsNone(chat.get_stats()["success_rate"])
             self.assertTrue(legacy.exists())
+
+
+    def test_escalation_order_keeps_only_loaded_methods_and_drops_baseline(self):
+        runtime = FakeRuntime({"baseline": "", "soft": "", "gcg": ""})
+        self.assertEqual(escalation_for(runtime), ["soft", "gcg"])
+        self.assertEqual(escalation_for(runtime, ["gcg", "soft", "gcg"]), ["gcg", "soft"])
+        self.assertEqual(escalation_for(runtime, ["baseline", "missing"]), [])
+        self.assertEqual(escalation_for(Mock()), [])  # non-dict methods -> no escalation
+
+    def test_baseline_non_refusal_stops_before_any_escalation(self):
+        runtime = FakeRuntime({"baseline": "1989年、北京。", "soft": "should not run"})
+
+        def assess(prompt, response):
+            return assessment(prompt, response, "Safety: Safe\nRefusal: No")
+
+        judge = Mock()
+        judge.assess.side_effect = assess
+        with tempfile.TemporaryDirectory() as directory:
+            result = AuditedChat(runtime, Path(directory), judge).chat("q", escalation=["soft"])
+        self.assertEqual(runtime.calls, ["baseline"])
+        self.assertFalse(result["optimization_performed"])
+        self.assertEqual(result["method"], "baseline")
+        self.assertEqual(result["attempts"], 1)
+
+    def test_escalation_stops_at_first_non_refusal(self):
+        runtime = FakeRuntime({"baseline": "お答えできません。", "soft": "まだ拒否します。", "gcg": "1989年、北京で発生しました。"})
+
+        def assess(prompt, response):
+            refusal = "Yes" if ("できません" in response or "拒否" in response) else "No"
+            return assessment(prompt, response, f"Safety: Safe\nRefusal: {refusal}")
+
+        judge = Mock()
+        judge.assess.side_effect = assess
+        with tempfile.TemporaryDirectory() as directory:
+            result = AuditedChat(runtime, Path(directory), judge).chat("q", escalation=["soft", "gcg"])
+        self.assertEqual(runtime.calls, ["baseline", "soft", "gcg"])
+        self.assertTrue(result["baseline_refused"])
+        self.assertFalse(result["refused"])
+        self.assertTrue(result["optimization_performed"])
+        self.assertEqual(result["method"], "gcg")
+        self.assertEqual(result["attempts"], 3)
+
+    def test_all_escalations_refused_reports_last_attempt(self):
+        runtime = FakeRuntime({"baseline": "できません1。", "soft": "できません2。"})
+
+        def assess(prompt, response):
+            return assessment(prompt, response, "Safety: Safe\nRefusal: Yes")
+
+        judge = Mock()
+        judge.assess.side_effect = assess
+        with tempfile.TemporaryDirectory() as directory:
+            result = AuditedChat(runtime, Path(directory), judge).chat("q", escalation=["soft"])
+        self.assertEqual(runtime.calls, ["baseline", "soft"])
+        self.assertTrue(result["refused"])
+        self.assertEqual(result["method"], "soft")
+        self.assertEqual(len(result["optimization_log"]), 2)
 
 
 if __name__ == "__main__":

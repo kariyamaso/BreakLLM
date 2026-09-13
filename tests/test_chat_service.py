@@ -16,7 +16,7 @@ from test_prompt_lab import tiny_model
 from heretic.chat_service import app as api
 from heretic.chat_service.attachments import flatten_content
 from heretic.chat_service.optimizers import concept_features, mutate
-from heretic.chat_service.registry import ModelRegistry, artifact_root_for, parse_model_list
+from heretic.chat_service.registry import ModelRegistry, artifact_root_for, load_catalog, parse_model_list
 from heretic.chat_service.report import judge, outcome, write_html
 from heretic.chat_service.runtime import JAPANESE_SYSTEM, ChatEngine, Runtime
 from heretic.chat_service.tools import calculate, execute_tool
@@ -392,6 +392,24 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(parse_model_list(None, "a/one"), ["a/one"])
         self.assertEqual(artifact_root_for(Path("r"), "a/one", "a/one"), Path("r/methods"))
         self.assertEqual(artifact_root_for(Path("r"), "b/two", "a/one"), Path("r/models/b__two/methods"))
+
+    def test_catalog_supplies_labels_and_decensored_flag_in_describe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "models.json"
+            path.write_text(json.dumps([
+                {"id": "/weights/dc", "label": "除去済み", "decensored": True},
+                {"bad": "no id"}, "not a dict",
+            ]))
+            catalog = load_catalog(path)
+            self.assertEqual(catalog, {"/weights/dc": {"label": "除去済み", "decensored": True}})
+            registry = ModelRegistry(["a/one", "/weights/dc"], fake_runtime, catalog=catalog)
+            described = {item["id"]: item for item in registry.describe()}
+            self.assertEqual(described["/weights/dc"]["label"], "除去済み")
+            self.assertTrue(described["/weights/dc"]["decensored"])
+            # A model with no catalog entry falls back to a derived label, not decensored.
+            self.assertEqual(described["a/one"]["label"], "one")
+            self.assertFalse(described["a/one"]["decensored"])
+        self.assertEqual(load_catalog(Path(directory) / "missing.json"), {})
 
 
 if __name__ == "__main__":
