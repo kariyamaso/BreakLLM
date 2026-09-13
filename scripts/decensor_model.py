@@ -42,7 +42,8 @@ def save_directory(report_root: Path, model_id: str) -> Path:
 
 
 def heretic_command(
-    model_id: str, save_dir: Path, *, n_trials: int, seed: int | None, trial_index: int
+    model_id: str, save_dir: Path, *, n_trials: int, seed: int | None, trial_index: int,
+    n_startup_trials: int | None = None,
 ) -> list[str]:
     """Build the non-interactive Heretic invocation.
 
@@ -60,6 +61,9 @@ def heretic_command(
         "--export-strategy", "merge",        # a standalone checkpoint, not a bare adapter
         "--save-directory", str(save_dir),
     ]
+    if n_startup_trials is not None:
+        # Must stay < n_trials, else Optuna spends the whole budget on random search.
+        command += ["--n-startup-trials", str(n_startup_trials)]
     if seed is not None:
         command += ["--seed", str(seed)]
     return command
@@ -92,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Chat service report root; holds models/ and models.json.")
     parser.add_argument("--n-trials", type=int, default=120,
                         help="Heretic abliteration trials (more = better Pareto front).")
+    parser.add_argument("--n-startup-trials", type=int, default=None,
+                        help="Random-search trials before Optuna guides the search (< n-trials).")
     parser.add_argument("--seed", type=int, default=None, help="Seed for a reproducible study.")
     parser.add_argument("--trial-index", type=int, default=0,
                         help="Index into the sorted Pareto front of the trial to export.")
@@ -105,7 +111,8 @@ def main(argv: list[str] | None = None) -> int:
     catalog_path = args.report_root / "models.json"
     label = args.label or f"{args.model.rstrip('/').split('/')[-1]} (検閲除去)"
     command = heretic_command(
-        args.model, save_dir, n_trials=args.n_trials, seed=args.seed, trial_index=args.trial_index
+        args.model, save_dir, n_trials=args.n_trials, seed=args.seed, trial_index=args.trial_index,
+        n_startup_trials=args.n_startup_trials,
     )
 
     print("Heretic command:\n  " + " ".join(command), flush=True)
