@@ -111,9 +111,16 @@ const Icon = {
 // text. Render assistant messages ourselves with GFM enabled (tables, task lists,
 // strikethrough); images/figures are styled responsively in style.css.
 const MARKDOWN_OPTIONS = {remarkPlugins: [remarkGfm]};
+// Small models sometimes wrap the whole answer in a ```markdown fence, which would
+// render as a code block (raw pipe tables) instead of formatted markdown. Unwrap
+// only when the entire message is one markdown/md-labelled fence.
+function unwrapMarkdownFence(text: string): string {
+  const match = text.trim().match(/^```(?:markdown|md)\s*\n([\s\S]*?)\n?```$/);
+  return match ? match[1] : text;
+}
 const AssistantMessage: AssistantMessageComponent = ({message}) => (
   <div className="assistant-md">
-    <MarkDownRenderer textMarkdown={typeof message.content === "string" ? message.content : String(message.content ?? "")} options={MARKDOWN_OPTIONS}/>
+    <MarkDownRenderer textMarkdown={unwrapMarkdownFence(typeof message.content === "string" ? message.content : String(message.content ?? ""))} options={MARKDOWN_OPTIONS}/>
   </div>
 );
 
