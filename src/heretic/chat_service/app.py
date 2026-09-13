@@ -345,12 +345,13 @@ async def chat(request: ChatRequest):
             result = task.result()
             content = result["response"]
             method_label = {"baseline": "原モデル", "soft": "Soft Prompt", "mse": "MSE誘導", "gcg": "GCG", "pair": "PAIR", "autodan": "AutoDAN"}
-            status_label = {"refusal": "拒否を検出", "non_refusal": "非拒否・成功は未確認", "unknown": "判定不能"}
-            # Escalation trace: which interventions were tried and which was adopted.
+            status_label = {"refusal": "拒否を検出", "non_refusal": "非拒否", "unknown": "判定不能"}
+            fulfill_label = {"fulfilled": "達成", "not_fulfilled": "未達成", "unclear": "不明", "unknown": "判定不能"}
+            # Escalation trace: refusal AND fulfillment per attempt, plus the adopted one.
             log = result.get("optimization_log") or []
             if len(log) > 1 or result.get("optimization_performed"):
                 lines = "\n".join(
-                    f"- 試行{row['attempt']}・{method_label.get(row['method'], row['method'])}：{status_label.get(row['status'], row['status'])}"
+                    f"- 試行{row['attempt']}・{method_label.get(row['method'], row['method'])}：拒否={status_label.get(row['status'], row['status'])} / 達成={fulfill_label.get(row.get('fulfillment'), '判定不能')}"
                     for row in log
                 )
                 adopted = method_label.get(result.get("method"), result.get("method"))
@@ -358,7 +359,8 @@ async def chat(request: ChatRequest):
             if "assessment" in result:
                 judged = result["assessment"]
                 label = status_label[judged["status"]]
-                content += f"\n\n---\n**LLMによる拒否判定：{label}**\n\n判定モデル：{judged['judge']}"
+                fulfill = fulfill_label.get(judged.get("fulfillment"), "判定不能")
+                content += f"\n\n---\n**LLM判定：拒否={label} / 達成={fulfill}**\n\n判定モデル：{judged['judge']}"
             if result["tools"]:
                 evidence = "\n\n---\n**実行したツール**\n"
                 for tool in result["tools"]:
