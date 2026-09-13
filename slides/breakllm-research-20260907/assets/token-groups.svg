@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" role="img" aria-labelledby="title desc">
+<title id="title">トークンのグルーピングを示す編集可能な見本</title><desc id="desc">二つの8×8トークン集合でグループ境界をずらした図。実験結果ではない。</desc>
+<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="36" height="36" fill="#e4efff" stroke="#a6bce0"/></pattern><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#0054b5"/></marker></defs>
+<g font-family="Arial,sans-serif" fill="#132c96" text-anchor="middle">
+<text x="220" y="45" font-size="29" font-weight="700">Grouping A</text><text x="760" y="45" font-size="29" font-weight="700">Grouping B</text>
+<rect x="60" y="80" width="320" height="320" fill="url(#grid)"/><rect x="600" y="80" width="320" height="320" fill="url(#grid)"/>
+<g fill="none" stroke="#0054b5" stroke-width="4"><rect x="60" y="80" width="160" height="160"/><rect x="220" y="80" width="160" height="160"/><rect x="60" y="240" width="160" height="160"/><rect x="220" y="240" width="160" height="160"/></g>
+<g fill="none" stroke="#008579" stroke-width="4"><rect x="600" y="80" width="320" height="320"/><path d="M680 80V400M840 80V400M600 160H920M600 320H920"/></g>
+<path d="M418 240H562" stroke="#0054b5" stroke-width="3" marker-end="url(#arr)"/><text x="490" y="208" font-size="22">shift</text>
+<text x="220" y="443" font-size="22">8 × 8 tokens / 2 × 2 groups</text><text x="760" y="443" font-size="22">Same tokens / different boundaries</text>
+</g></svg>

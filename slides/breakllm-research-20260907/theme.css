@@ -1,0 +1,18 @@
+/* Personal palette from 906MTG. Standalone SVG assets also contain their own palette. */
+@font-face{
+  font-family:KariyamaNoto;src:url("assets/fonts/NotoSansJP.ttf") format("truetype");
+  font-style:normal;font-weight:100 900;font-display:swap;
+}
+:root{
+  color-scheme:light;
+  --brand-ink:#132c96; --brand-blue:#0054b5; --brand-cyan:#17aabd;
+  --brand-mint:#008579; --brand-red:#ed3131;
+  --paper:#ffffff; --ink:#132c96; --body-ink:#27365a; --muted:#586885;
+  --line:#cbd5e5; --wash:#e4efff; --wash-mint:#e7f5f0; --wash-red:#fff0ed;
+  --note-ink:#075568; --note-fill:#dbf4f8; --danger-ink:#bd2525;
+  --comparison:#8b98ae; --viewer:#e8edf4;
+  --font:KariyamaNoto,"Hiragino Sans","Meiryo",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  --slide-w:1440px; --slide-h:810px; --pad:64px;
+  --title-size:44px; --body-size:30px; --caption-size:19px;
+}

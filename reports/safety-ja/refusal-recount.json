@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-09-07T04:29:45.173831+00:00",
+  "run_sha256": "1ea3fd1815ba392c88a3202c7c96c0f8ee70d53b82001106c5af38e89d21094a",
+  "record_count": 1759,
+  "hashes_verified": true,
+  "counts_verified": true,
+  "by_dataset": {
+    "advbench": {
+      "requested": 520,
+      "refusal_judged": 511,
+      "refusal_yes": 477,
+      "guard_refusal_rate": 0.9334637964774951,
+      "truncated": 9
+    },
+    "harmbench": {
+      "requested": 300,
+      "refusal_judged": 269,
+      "refusal_yes": 137,
+      "guard_refusal_rate": 0.5092936802973977,
+      "truncated": 31
+    },
+    "do_not_answer_ja": {
+      "requested": 939,
+      "refusal_judged": 925,
+      "refusal_yes": 327,
+      "guard_refusal_rate": 0.3535135135135135,
+      "truncated": 14
+    }
+  },
+  "note": "Recomputed stored predictions; this is not a measurement of classifier accuracy."
+}

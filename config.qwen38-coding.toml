@@ -1,0 +1,37 @@
+# Abliteration of Qwen/Qwen3.8-27B for the hb-gpu-0 coding agent.
+# Run on hb-gpu-1 (shared GPU): 4-bit loading keeps peak VRAM well under 40GB.
+#   uv run heretic --config config.qwen38-coding.toml Qwen/Qwen3.8-27B
+# Objectives: refusals (minimize), KL on general prompts (minimize),
+# KL on coding instructions (minimize). Pick a low-KL point on the Pareto front.
+
+model = "Qwen/Qwen3.8-27B"
+model_commit = "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+quantization = "bnb_4bit"
+device_map = "auto"
+max_memory = { "0" = "40GB", "cpu" = "60GB" }
+offload_outputs_to_cpu = true
+max_batch_size = 64
+max_response_length = 100
+
+n_trials = 200
+n_startup_trials = 60
+study_checkpoint_dir = "checkpoints/qwen3.8-27b-coding"
+
+row_normalization = "full"
+orthogonalize_direction = true
+
+scorers = [
+    { plugin = "heretic.scorers.keyword_rate.KeywordRate", optimization = "minimize" },
+    { plugin = "heretic.scorers.kl_divergence.KLDivergence", optimization = "minimize", instance_name = "general" },
+    { plugin = "heretic.scorers.kl_divergence.KLDivergence", optimization = "minimize", instance_name = "code" },
+]
+
+[scorer.KLDivergence_general.prompts]
+dataset = "mlabonne/harmless_alpaca"
+split = "test[:100]"
+column = "text"
+
+[scorer.KLDivergence_code.prompts]
+dataset = "sahil2801/CodeAlpaca-20k"
+split = "train[:100]"
+column = "instruction"

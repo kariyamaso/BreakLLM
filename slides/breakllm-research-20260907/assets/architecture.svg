@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-labelledby="title desc">
+<title id="title">編集可能なアーキテクチャ図の見本</title><desc id="desc">Input、Tokenize、Backboneから三つのHeadへ接続する概念図。実装や性能の報告ではない。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#0054b5"/></marker></defs>
+<g stroke="#0054b5" stroke-width="3" fill="none" marker-end="url(#arrow)">
+<path d="M205 202H275"/><path d="M495 202H565"/><path d="M835 202H910V90H970"/><path d="M835 202H970"/><path d="M835 202H910V314H970"/>
+</g>
+<g font-family="Arial,sans-serif" fill="#132c96" text-anchor="middle">
+<rect x="25" y="128" width="180" height="148" rx="3" fill="#e4efff" stroke="#0054b5" stroke-width="2"/>
+<text x="115" y="192" font-size="31" font-weight="700">Input</text><text x="115" y="235" font-size="23">B × T × C</text>
+<rect x="275" y="128" width="220" height="148" rx="3" fill="#e4efff" stroke="#0054b5" stroke-width="2"/>
+<text x="385" y="192" font-size="31" font-weight="700">Tokenize</text><text x="385" y="235" font-size="23">B × N × D</text>
+<rect x="565" y="106" width="270" height="192" rx="3" fill="#e7f5f0" stroke="#008579" stroke-width="3"/>
+<text x="700" y="185" font-size="32" font-weight="700">Backbone</text><text x="700" y="230" font-size="24">Shared representation</text>
+<g fill="#e4efff" stroke="#0054b5" stroke-width="2"><rect x="970" y="44" width="275" height="92" rx="3"/><rect x="970" y="156" width="275" height="92" rx="3"/><rect x="970" y="268" width="275" height="92" rx="3"/></g>
+<text x="1108" y="101" font-size="29">Head A</text><text x="1108" y="213" font-size="29">Head B</text><text x="1108" y="325" font-size="29">Head C</text>
+</g></svg>

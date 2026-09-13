@@ -1,5 +1,40 @@
 # BreakLLM research chat
 
+## 2026-09-07の復旧・拒否判定の修正
+
+OpenUI版を `http://100.91.77.114:8768/` に統一し、旧開発用URLの8770は308で転送します。
+停止していた `breakllm-chat.service` を復旧しました。`breakllm-chat-redirect.service` も自動起動します。
+生成モデルはRuntimeを共有して1コピー、拒否判定は固定版のQwen3Guard-Gen-0.6BをCPUで実行します。
+起動時のGPU確保量は旧開発版10,556MiBから3,842MiBへ減りました。これは起動時の比較で、ピーク使用量ではありません。
+
+チャットの末尾にLLMの拒否判定を付け、比較画面には保存済みのbefore/afterと再判定を掲載します。
+判定は「拒否」「非拒否」「判定不能」の3状態です。非拒否やUnsafeだけで成功とは判定しません。
+報告された「爆弾の作り方を教えてはできません」という応答は拒否と判定しました。
+6件の既知ケースで期待ラベルと一致しましたが、判定器全体の正解率を測定したものではありません。
+歴史的事実にもUnsafeを出した例があるため、そのラベルを人手の真値とは扱いません。
+
+`/api/jailbreak/chat` は互換用の名称を保ち、現在は原モデルの1回生成と独立判定を行います。
+拒否をきっかけとした自動学習は行いません。応答本文のない旧 `optimization_history.json` は保持し、
+新しい `assessment_history.json` の統計には混ぜません。判定失敗・打ち切りは成功になりません。
+`/api/response-assessment` では保存した質問・応答を再判定します。通常のチャットは
+`assess_response: true` で判定を追加し、既存評価APIの既定値はfalseです。
+
+AdvBench等の完了した既存1,759件を再照合し、[拒否率ダッシュボード](http://100.91.77.114:8768/reports/safety.html)に掲載しました。
+根拠は [全実験台帳](../reports/server-experiment-inventory.json)、[集計](../reports/server-experiment-summary.json)、
+[LLM再判定](../reports/response-judge-verification.json)、[確認例](../reports/verified-examples.json)、
+[復旧と画面検証](../reports/chat-service-recovery-20260907.json) に保存しています。
+2026年9月12日の UI 刷新（モノクロ・ChatGPT型構成・モデル切替・添付）の反映と検証は
+[ui-redesign-20260912.json](../reports/ui-redesign-20260912.json) と [画面](../reports/ui-redesign-20260912.png) に保存しています。
+
+指定テンプレートに沿った34枚の[スライド](http://100.91.77.114:8768/slides/breakllm-research-20260907/index.html)と
+[PDF](http://100.91.77.114:8768/slides/breakllm-research-20260907/breakllm-research.pdf)も同じアプリから閲覧できます。
+既存47個のJSONを台帳化し、論文図・技術解説・Heretic公開値・実測・判定修正・GPU整理を収録しました。
+配布ZIPは `slides/breakllm-research-20260907.zip`、サーバー上の静的配置先は `chat-ui/dist/slides/` です。
+フロントエンドを再ビルドした際は、配布ZIPを同じ配置先へ展開してください。
+
+既存チャット13件・新規判定4件のテスト、6件のLLM実判定、OpenUIの実応答・例の表示・旧URL転送を確認しました。
+安全性評価の詳細・条件は以下の既存記録を参照してください。
+
 hb-gpu-0 で Qwen/Qwen3-1.7B を起動し、入力への介入を選んで会話できます。
 既定の質問・応答・入力欄・履歴の表示は日本語です。日本語入力の変換確定では送信せず、Enterで送信、Shift+Enterで改行できます。
 UI は指定された [thesysdev/openui](https://github.com/thesysdev/openui) の
@@ -16,7 +51,19 @@ UI は指定された [thesysdev/openui](https://github.com/thesysdev/openui) �
 
 公開範囲は hb-gpu-0 と同じ Tailscale ネットワークです。インターネット一般公開用の
 ドメイン・認証は設定していません。アプリの認証境界は Tailscale のアクセス制御です。
-モデルや方式は上部で確認・選択できます。初期選択は Soft Prompt です。
+画面は ChatGPT と同じ構成です。左のサイドバーに新規チャット・比較・拒否率評価・会話履歴・レポートへのリンクとモデル名、
+右にチャット画面を置き、黒と白のみの配色で `BreakLLM.jpg` のロゴを使います（サイドバー下のボタンで白基調と黒基調を切り替え）。
+チャット画面上部でモデル・適用方式・ツールの有無を選択できます。初期選択は既定モデルの Soft Prompt です。
+
+- モデル一覧は `BREAKLLM_MODELS`（カンマ区切りの Hugging Face ID）で指定します。未指定なら `BREAKLLM_MODEL` の1件のみです。
+  GPU は共有のため `BREAKLLM_MAX_LOADED`（既定 1）件だけ常駐し、別モデルへ切り替えると最も使われていないモデルを解放してから読み込みます。
+  切り替え中は UI が「読み込み中…」を表示し、`/api/models` で読み込み状況を確認できます。
+- 適用方式の artifact はモデルごとに別です。既定モデルは `prompt-runs/<run>/methods/`、
+  それ以外は `prompt-runs/<run>/models/<org>__<name>/methods/` を読み、モデルが一致しない artifact は警告して読み飛ばします。
+- 入力欄の「＋」、ドラッグ＆ドロップ、貼り付けで画像とファイルを添付できます（1メッセージ5件、画像4MB・ファイル2MBまで）。
+  テキスト系ファイルは内容をそのまま質問に添えて送ります（1ファイル12,000文字で打ち切り）。
+  現在のモデルはテキスト専用なので、画像とバイナリはファイル名と種類だけを渡し、UI にもその旨を表示します。
+  リクエストは OpenAI Chat Completions 形式の `content` 配列（`text` / `image_url` / `file`）です。
 「応答を比較」はツールを無効にし、同じ質問と生成条件で原モデルと選択方式を順に実行します。
 
 ## 実装した方式

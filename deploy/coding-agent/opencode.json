@@ -21,7 +21,7 @@
           "reasoning": true,
           "interleaved": {"field": "reasoning_content"},
           "temperature": true,
-          "limit": {"context": 32768, "output": 8192},
+          "limit": {"context": 32768, "input": 24576, "output": 8192},
           "modalities": {"input": ["text"], "output": ["text"]},
           "cost": {"input": 0, "output": 0}
         }
@@ -32,6 +32,6 @@
     "build": {"temperature": 0.6, "top_p": 0.95},
     "plan": {"temperature": 0.6, "top_p": 0.95}
   },
-  "compaction": {"auto": true, "prune": true, "reserved": 4096},
+  "compaction": {"auto": true, "prune": true, "reserved": 8192},
   "watcher": {"ignore": ["**/.coding-agent/**"]}
 }

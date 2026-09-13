@@ -1,0 +1,63 @@
+{
+  "created_at": "2026-09-07T04:38:44.480841+00:00",
+  "host": "hb-gpu-0",
+  "files_catalogued": 47,
+  "roots": [
+    "/home/ubuntu/kariyama/BreakLLM",
+    "/home/ubuntu/kariyama/BreakLLM-dev"
+  ],
+  "groups": [
+    [
+      "有害質問の固定評価",
+      "1,759問 / 完了1,705 / 打ち切り54",
+      "主要指標。AdvBench・HarmBench・Do-Not-Answer-Ja"
+    ],
+    [
+      "日本語の安全質問",
+      "原モデル32問 + 5方式×5問=25比較",
+      "原モデルの完全拒否0件。解除率は未定義"
+    ],
+    [
+      "中国語等の比較",
+      "8問×5方式=40比較",
+      "回答回避の改善例と誤答を記録"
+    ],
+    [
+      "日本語比較",
+      "8問×5方式=40比較",
+      "GCGの計算正答例。拒否解除の確認例なし"
+    ],
+    [
+      "初期の自然言語探索",
+      "8問×5方式=40比較",
+      "探索履歴。最終評価の40比較へ重複加算しない"
+    ],
+    [
+      "安全評価のsmoke",
+      "12問",
+      "同じデータの動作確認。全件評価に重複加算しない"
+    ],
+    [
+      "開発版の途中実行",
+      "176件 / status=running",
+      "未完了。全件拒否率に使用しない"
+    ],
+    [
+      "開発版の小規模評価",
+      "eval-test: 2問 / eval-pair: 2問",
+      "本評価と異なる条件の動作確認"
+    ],
+    [
+      "旧チャット履歴",
+      "11件（台帳作成時）",
+      "応答本文がなく旧判定に誤り。成功率から除外"
+    ],
+    [
+      "Coding Agent",
+      "修正課題1件 / 既存テスト5件",
+      "15.67秒。拒否率や汎用コード能力の測定ではない"
+    ]
+  ],
+  "deduplication": "Mirrored reports, re-judged versions and smoke subsets are not independent new runs.",
+  "source": "reports/server-experiment-inventory.json"
+}

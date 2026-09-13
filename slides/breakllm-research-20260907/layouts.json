@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1440,
+    "height": 810
+  },
+  "layouts": [
+    {
+      "id": "cover",
+      "name": "表紙",
+      "slide": 1,
+      "guide": "タイトル・日付・発表者を配置。左2/3の濃紺面と右の余白を維持。"
+    },
+    {
+      "id": "overview",
+      "name": "概要",
+      "slide": 2,
+      "guide": "要点を最大3つ。本文は四角い箇条書き。"
+    },
+    {
+      "id": "section",
+      "name": "セクション",
+      "slide": 3,
+      "guide": "章番号と見出し。長い説明は置かない。"
+    },
+    {
+      "id": "architecture",
+      "name": "アーキテクチャ",
+      "slide": 4,
+      "guide": "全幅の構成図に短い注釈。"
+    },
+    {
+      "id": "paper-figure",
+      "name": "論文図＋説明",
+      "slide": 5,
+      "guide": "原図は比率維持。著者・年・Fig番号・リンクを追記。"
+    },
+    {
+      "id": "comparison",
+      "name": "比較",
+      "slide": 6,
+      "guide": "左右の対応位置と比較軸を揃える。"
+    },
+    {
+      "id": "tokenization",
+      "name": "トークン・マスク",
+      "slide": 7,
+      "guide": "要素の対応を編集可能な図形で表示。"
+    },
+    {
+      "id": "equation",
+      "name": "数式・損失",
+      "slide": 8,
+      "guide": "式と記号説明、検証内容を分離。"
+    },
+    {
+      "id": "results",
+      "name": "性能比較",
+      "slide": 9,
+      "guide": "単位・分割・seedを付記。見本値を実験値に置き換える。"
+    },
+    {
+      "id": "ablation",
+      "name": "Ablation",
+      "slide": 10,
+      "guide": "固定条件と変更条件を明記。未測定は未測定。"
+    },
+    {
+      "id": "protocol",
+      "name": "計測・処理フロー",
+      "slide": 11,
+      "guide": "取得・処理・保存の順序を示す。"
+    },
+    {
+      "id": "app",
+      "name": "アプリ画面",
+      "slide": 12,
+      "guide": "実画面を大きく1枚。撮影日と入力種別を記載。"
+    },
+    {
+      "id": "detail",
+      "name": "画面詳細",
+      "slide": 13,
+      "guide": "重要箇所の拡大と対応する説明。"
+    },
+    {
+      "id": "implementation",
+      "name": "コード・実装差分",
+      "slide": 14,
+      "guide": "短いコードと要点。本文に等幅を使わない。"
+    },
+    {
+      "id": "evidence",
+      "name": "評価条件",
+      "slide": 15,
+      "guide": "指標、分割、比較条件を表で固定。"
+    },
+    {
+      "id": "palette",
+      "name": "配色・部品",
+      "slide": 16,
+      "guide": "カラーパレットと注釈、矩形などの部品見本。"
+    },
+    {
+      "id": "figure",
+      "name": "図中心",
+      "slide": 17,
+      "guide": "1枚の図に紙面を割き、結論を短く添える。"
+    },
+    {
+      "id": "closing",
+      "name": "まとめ",
+      "slide": 18,
+      "guide": "結論・制約・次の作業。"
+    }
+  ]
+}

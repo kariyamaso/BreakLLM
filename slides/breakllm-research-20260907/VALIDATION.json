@@ -1,0 +1,534 @@
+{
+  "base": "file:///Users/kariyamaso/workspace/research/BreakLLM/slides/breakllm-research-20260907/index.html",
+  "slides": [
+    {
+      "number": 1,
+      "title": "BreakLLM：技術と性能評価",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 2,
+      "title": "Hereticで拒否率を97%から3%へ低減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 3,
+      "title": "BreakLLMは介入・比較・評価をつなぐ",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 4,
+      "title": "OpenUIで会話・比較・拒否率を確認",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/openui-method.png",
+          "loaded": true
+        },
+        {
+          "src": "assets/figures/openui-examples.png",
+          "loaded": true
+        },
+        {
+          "src": "assets/figures/openui-input.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "既存47ファイルを実験単位で整理",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 6,
+      "title": "Qiita記事は攻撃の目的を六つに整理",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 7,
+      "title": "入力の操作は文脈・表現・形式に分かれる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 8,
+      "title": "取得文書もモデルへの指示になり得る",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/greshake-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "安全学習の失敗には二つの仮説がある",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 10,
+      "title": "拒否方向の除去で応答は大きく変わる",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/arditi-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "title": "Hereticは拒否方向と介入強度を調整",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 12,
+      "title": "五つの入力介入を同じモデルで比べる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 13,
+      "title": "Soft Promptは入力ベクトルだけ学習",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 14,
+      "title": "MSEは概念の表現を参照文脈へ近づける",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 15,
+      "title": "GCGは連続勾配から離散文字列を選ぶ",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 16,
+      "title": "自然言語探索は生成と評価を繰り返す",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/pair-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "title": "三つの評価は目的と分母が異なる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 18,
+      "title": "生成と独立LLMによる拒否判定を分離",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 19,
+      "title": "明確な拒否が成功になる誤判定を修正",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 20,
+      "title": "検証損失は学習途中で最小になる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 21,
+      "title": "小規模の介入学習は約1〜11秒",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 22,
+      "title": "語句条件の充足は最大4/8問に増えた",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 23,
+      "title": "LLM判定でも回答回避の解消を確認",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 24,
+      "title": "日本語32問では解除対象がなかった",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 25,
+      "title": "原モデルの拒否率はデータで異なる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 26,
+      "title": "非拒否と危険な回答は同じ指標ではない",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 27,
+      "title": "判定カバレッジと計測時間も併記",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 28,
+      "title": "Hereticで拒否率を94ポイント低減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 29,
+      "title": "Coding Agentは編集とテストまで動作",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 30,
+      "title": "モデル共有でGPU確保量を6.6GiB削減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 31,
+      "title": "予備・未完了の記録も集計対象に含める",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 32,
+      "title": "拒否低減から評価・コード編集まで実装",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 33,
+      "title": "参考文献：脅威の整理と内部機構",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 34,
+      "title": "参考文献と実測値の追跡先",
+      "issues": [],
+      "images": []
+    }
+  ],
+  "starter": [
+    {
+      "number": 1,
+      "title": "BreakLLM：技術と性能評価",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 2,
+      "title": "Hereticで拒否率を97%から3%へ低減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 3,
+      "title": "BreakLLMは介入・比較・評価をつなぐ",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 4,
+      "title": "OpenUIで会話・比較・拒否率を確認",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/openui-method.png",
+          "loaded": true
+        },
+        {
+          "src": "assets/figures/openui-examples.png",
+          "loaded": true
+        },
+        {
+          "src": "assets/figures/openui-input.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "既存47ファイルを実験単位で整理",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 6,
+      "title": "Qiita記事は攻撃の目的を六つに整理",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 7,
+      "title": "入力の操作は文脈・表現・形式に分かれる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 8,
+      "title": "取得文書もモデルへの指示になり得る",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/greshake-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "安全学習の失敗には二つの仮説がある",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 10,
+      "title": "拒否方向の除去で応答は大きく変わる",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/arditi-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "title": "Hereticは拒否方向と介入強度を調整",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 12,
+      "title": "五つの入力介入を同じモデルで比べる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 13,
+      "title": "Soft Promptは入力ベクトルだけ学習",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 14,
+      "title": "MSEは概念の表現を参照文脈へ近づける",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 15,
+      "title": "GCGは連続勾配から離散文字列を選ぶ",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 16,
+      "title": "自然言語探索は生成と評価を繰り返す",
+      "issues": [],
+      "images": [
+        {
+          "src": "assets/figures/pair-figure.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "title": "三つの評価は目的と分母が異なる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 18,
+      "title": "生成と独立LLMによる拒否判定を分離",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 19,
+      "title": "明確な拒否が成功になる誤判定を修正",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 20,
+      "title": "検証損失は学習途中で最小になる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 21,
+      "title": "小規模の介入学習は約1〜11秒",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 22,
+      "title": "語句条件の充足は最大4/8問に増えた",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 23,
+      "title": "LLM判定でも回答回避の解消を確認",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 24,
+      "title": "日本語32問では解除対象がなかった",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 25,
+      "title": "原モデルの拒否率はデータで異なる",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 26,
+      "title": "非拒否と危険な回答は同じ指標ではない",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 27,
+      "title": "判定カバレッジと計測時間も併記",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 28,
+      "title": "Hereticで拒否率を94ポイント低減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 29,
+      "title": "Coding Agentは編集とテストまで動作",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 30,
+      "title": "モデル共有でGPU確保量を6.6GiB削減",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 31,
+      "title": "予備・未完了の記録も集計対象に含める",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 32,
+      "title": "拒否低減から評価・コード編集まで実装",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 33,
+      "title": "参考文献：脅威の整理と内部機構",
+      "issues": [],
+      "images": []
+    },
+    {
+      "number": 34,
+      "title": "参考文献と実測値の追跡先",
+      "issues": [],
+      "images": []
+    }
+  ],
+  "errors": [],
+  "failedRequests": [],
+  "widths": [
+    {
+      "width": 3440,
+      "scrollWidth": 3440
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 320,
+      "scrollWidth": 320
+    }
+  ],
+  "starterSlides": 34,
+  "passed": true,
+  "pdf": {
+    "pages": 34,
+    "size_points": [
+      1080,
+      607.5
+    ],
+    "embedded_sources": [
+      "evidence.json",
+      "SOURCES.txt",
+      "data/server-experiment-inventory.json",
+      "data/server-experiment-summary.json",
+      "data/response-judge-verification.json"
+    ],
+    "sha256": "e7db4e415d7b76d571604dea1bcee487896150c8c6c32da44d4d9915ff72f0aa"
+  },
+  "visual_review": {
+    "all_34_reviewed": true,
+    "required_fixes_applied": [
+      "slide4 UI controls enlarged as three high-resolution crops"
+    ],
+    "changed_slides_rechecked": [
+      4,
+      9,
+      25
+    ]
+  },
+  "content": {
+    "metrics_cross_checked": true,
+    "source_blocks": 34,
+    "original_paper_figures": 3,
+    "server_json_files_catalogued": 47,
+    "known_judge_cases": 6
+  }
+}

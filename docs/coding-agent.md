@@ -12,6 +12,48 @@ OpenCode がコードの検索・読み取り・編集・コマンド実行と�
 bash deploy/coding-agent/connect.sh
 ```
 
+2026-09-07の修正後は、同じ作業ディレクトリの直近の会話を自動的に再開します。
+起動中のOpenCodeには古い設定が残るため、一度終了して上のコマンドで再接続してください。
+
+```bash
+# 保存済みの会話を一覧表示（推論モデルが停止していても利用可能）
+bash deploy/coding-agent/connect.sh history
+
+# 新規会話 / 指定した会話を再開
+bash deploy/coding-agent/connect.sh --new
+bash deploy/coding-agent/connect.sh --session ses_...
+
+# 作業先・選択される履歴を起動せず確認
+bash deploy/coding-agent/connect.sh --dry-run
+
+# 開発UIを起動し、HTTPとAPIの疎通を確認
+bash deploy/coding-agent/connect.sh app start
+bash deploy/coding-agent/connect.sh app status
+bash deploy/coding-agent/connect.sh app logs
+bash deploy/coding-agent/connect.sh app stop
+```
+
+開発UIは `http://100.91.77.114:8771/` です。開発用cloneのソースを読み込み、
+既存の `http://100.91.77.114:8768/` のAPIを共有します。GPUモデルは追加しません。
+`8768` は稼働中の配布版、`8770` は配布版への転送です。
+起動した開発UIはSSHやOpenCodeを終了しても継続します。ホスト再起動後は `app start` を実行します。
+稼働済み・ポート競合・起動失敗では成功URLを返さず、原因と確認方法を表示します。
+
+別のHTTPアプリもプロジェクト単位で管理できます。以下の例は hb-gpu-0 上で実行します。
+
+```bash
+qwen-code app start demo --port 8772 -- python3 -m http.server 8772 --bind 100.91.77.114
+qwen-code app status demo
+qwen-code app logs demo
+qwen-code app stop demo
+```
+
+履歴のDBは `~/.local/share/opencode/opencode.db` です（`XDG_DATA_HOME` 指定時はその配下）。
+自動再開では別ディレクトリ・サブエージェント・アーカイブ済みの会話を選びません。
+長い履歴は `/compact` でも圧縮できます。自動圧縮は16,384トークンから開始する設定に変更しました。
+各ツールの出力は先頭6,000バイトに制限し、全文は `~/.local/share/opencode/qwen-tool-output/` に保存します。
+全文の保存先を応答に示すので、必要な行だけ読み返せます。元の会話DBを削除・初期化する処理はありません。
+
 既定の開発用cloneは `/home/ubuntu/kariyama/BreakLLM-dev` です。
 引数にディレクトリを渡すと、hb-gpu-0 上の別プロジェクトで作業できます。
 ファイル編集とコマンド実行は hb-gpu-0 上で行われます。

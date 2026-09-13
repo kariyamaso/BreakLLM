@@ -1,22 +1,47 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import asyncio
+import base64
+import contextlib
 import json
 import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import torch
 from fastapi.testclient import TestClient
 from test_prompt_lab import tiny_model
 
 from heretic.chat_service import app as api
+from heretic.chat_service.attachments import flatten_content
 from heretic.chat_service.optimizers import concept_features, mutate
+from heretic.chat_service.registry import ModelRegistry, artifact_root_for, parse_model_list
 from heretic.chat_service.report import judge, outcome, write_html
 from heretic.chat_service.runtime import JAPANESE_SYSTEM, ChatEngine, Runtime
 from heretic.chat_service.tools import calculate, execute_tool
 from heretic.prompt_lab.data import Template
+
+
+def fake_runtime(model_id="test"):
+    runtime = Runtime.__new__(Runtime)
+    runtime.model_id = model_id
+    runtime.methods = {"baseline": (Template(), None)}
+    runtime.metadata = {"baseline": {"label": "Original", "method": "baseline"}}
+    return runtime
+
+
+def app_state(runtime, **extra):
+    registry = ModelRegistry([runtime.model_id], lambda _id: runtime)
+    registry.loaded[runtime.model_id] = runtime  # already resident, like the default model
+    patches = [
+        patch.object(api.app.state, "runtime", runtime, create=True),
+        patch.object(api.app.state, "registry", registry, create=True),
+        patch.object(api.app.state, "busy", asyncio.Lock(), create=True),
+    ]
+    for key, value in extra.items():
+        patches.append(patch.object(api.app.state, key, value, create=True))
+    return patches
 
 
 class ServiceTests(unittest.TestCase):
@@ -200,12 +225,10 @@ class ServiceTests(unittest.TestCase):
             self.assertIsNone(mutate(runtime, Template(), "feedback"))
 
     def test_api_rejects_external_system_messages_and_unknown_methods(self):
-        runtime = Runtime.__new__(Runtime)
-        runtime.methods = {"baseline": (Template(), None)}
-        with (
-            patch.object(api.app.state, "runtime", runtime, create=True),
-            patch.object(api.app.state, "busy", asyncio.Lock(), create=True),
-        ):
+        runtime = fake_runtime()
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
             client = TestClient(api.app)
             response = client.post(
                 "/api/chat",
@@ -220,20 +243,24 @@ class ServiceTests(unittest.TestCase):
                 },
             )
             self.assertEqual(response.status_code, 422)
+            response = client.post(
+                "/api/chat",
+                json={
+                    "messages": [{"role": "user", "content": "test"}],
+                    "model": "not-served/model",
+                },
+            )
+            self.assertEqual(response.status_code, 422)
 
     def test_complete_response_identifies_the_loaded_audit_context(self):
-        runtime = Runtime.__new__(Runtime)
-        runtime.methods = {"baseline": (Template(), None)}
-        with (
-            patch.object(api.app.state, "runtime", runtime, create=True),
-            patch.object(api.app.state, "busy", asyncio.Lock(), create=True),
-            patch.object(
-                api.app.state, "audit_context_id", "loaded-context", create=True
-            ),
-            patch.object(
-                api.app.state, "audit_context", {"engine": "test"}, create=True
-            ),
-            patch.object(
+        runtime = fake_runtime()
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
+            api.app.state.registry.contexts["test"] = {"id": "loaded-context", "engine": "test"}
+            stack.enter_context(patch.object(api.app.state, "audit_context_id", "loaded-context", create=True))
+            stack.enter_context(patch.object(api.app.state, "audit_context", {"engine": "test"}, create=True))
+            stack.enter_context(patch.object(
                 runtime,
                 "chat",
                 return_value={
@@ -242,8 +269,7 @@ class ServiceTests(unittest.TestCase):
                     "tools": [],
                     "seconds": 0,
                 },
-            ),
-        ):
+            ))
             client = TestClient(api.app)
             context = client.get("/api/audit-context").json()
             response = client.post(
@@ -255,18 +281,15 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(response.json()["response"], "回答")
 
     def test_openui_sse_protocol_contains_response_and_completion_marker(self):
-        runtime = Runtime.__new__(Runtime)
-        runtime.model_id = "test"
-        runtime.methods = {"baseline": (Template(), None)}
-        with (
-            patch.object(
+        runtime = fake_runtime()
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
+            stack.enter_context(patch.object(
                 runtime,
                 "chat",
                 return_value={"response": "hello", "tools": [], "seconds": 0},
-            ),
-            patch.object(api.app.state, "runtime", runtime, create=True),
-            patch.object(api.app.state, "busy", asyncio.Lock(), create=True),
-        ):
+            ))
             response = TestClient(api.app).post(
                 "/api/chat", json={"messages": [{"role": "user", "content": "test"}]}
             )
@@ -278,6 +301,97 @@ class ServiceTests(unittest.TestCase):
             ]
             self.assertEqual(chunks[1]["choices"][0]["delta"]["content"], "hello")
             self.assertIn("data: [DONE]", response.text)
+
+    def test_attachments_are_inlined_as_text_and_images_are_marked(self):
+        text = base64.b64encode("秘密の\n手順".encode()).decode()
+        content = [
+            {"type": "text", "text": "この資料を要約して"},
+            {"type": "file", "file": {"filename": "memo.txt", "file_data": f"data:text/plain;base64,{text}"}},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="}, "filename": "fig.png"},
+            {"type": "file", "file": {"filename": "blob.bin", "file_data": "data:application/octet-stream;base64,AAEC"}},
+        ]
+        rendered = flatten_content(api.Message(role="user", content=content).content)
+        self.assertTrue(rendered.startswith("この資料を要約して"))
+        self.assertIn("[添付ファイル: memo.txt]\n```\n秘密の\n手順\n```", rendered)
+        self.assertIn("[添付画像: fig.png]（このモデルは画像の内容を読み取れません", rendered)
+        self.assertIn("blob.bin（application/octet-stream、3 バイト）", rendered)
+        self.assertEqual(flatten_content("plain"), "plain")
+        with self.assertRaises(ValueError):
+            api.Message(role="user", content=[{"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}] * 6)
+
+    def test_chat_accepts_multipart_content_and_sends_flattened_text_to_the_model(self):
+        runtime = fake_runtime()
+        seen = {}
+
+        def chat(messages, method, use_tools, max_new_tokens):
+            seen["messages"] = messages
+            return {"response": "ok", "method": method, "tools": [], "seconds": 0}
+
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
+            api.app.state.registry.contexts["test"] = {"id": "ctx"}
+            stack.enter_context(patch.object(runtime, "chat", side_effect=chat))
+            client = TestClient(api.app)
+            payload = base64.b64encode(b"a,b\n1,2").decode()
+            response = client.post("/api/chat/complete", json={"messages": [{"role": "user", "content": [
+                {"type": "text", "text": "表を説明して"},
+                {"type": "file", "file": {"filename": "t.csv", "file_data": f"data:text/csv;base64,{payload}"}},
+            ]}], "model": "test"})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["model"], "test")
+            self.assertIn("a,b\n1,2", seen["messages"][0]["content"])
+            self.assertIsInstance(seen["messages"][0]["content"], str)
+            empty = client.post("/api/chat/complete", json={"messages": [{"role": "user", "content": [{"type": "text", "text": "  "}]}]})
+            self.assertEqual(empty.status_code, 422)
+
+    def test_models_endpoint_lists_models_and_methods_follow_the_selected_model(self):
+        runtime = fake_runtime()
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
+            client = TestClient(api.app)
+            models = client.get("/api/models").json()
+            self.assertEqual(models["default"], "test")
+            self.assertEqual(models["models"][0]["id"], "test")
+            self.assertTrue(models["models"][0]["loaded"])
+            self.assertFalse(models["models"][0]["supports_images"])
+            self.assertEqual(client.get("/api/methods", params={"model": "test"}).json()["model"], "test")
+            self.assertEqual(client.get("/api/methods", params={"model": "missing"}).status_code, 422)
+
+    def test_registry_loads_lazily_and_evicts_least_recently_used(self):
+        loads = []
+
+        def loader(model_id):
+            loads.append(model_id)
+            runtime = fake_runtime(model_id)
+            runtime.engine = Mock()
+            runtime.engine.identity.return_value = {"model": model_id}
+            return runtime
+
+        registry = ModelRegistry(["a/one", "b/two", "c/three"], loader, max_loaded=2)
+        self.assertEqual(registry.default_id, "a/one")
+        self.assertEqual(loads, [])
+        self.assertEqual(registry.get().model_id, "a/one")
+        registry.get("b/two")
+        registry.get("a/one")  # refresh recency
+        registry.get("c/three")  # evicts b/two
+        self.assertEqual(loads, ["a/one", "b/two", "c/three"])
+        self.assertEqual(list(registry.loaded), ["a/one", "c/three"])
+        registry.get("b/two")
+        self.assertEqual(loads[-1], "b/two")
+        self.assertEqual(list(registry.loaded), ["c/three", "b/two"])
+        described = {item["id"]: item for item in registry.describe()}
+        self.assertTrue(described["a/one"]["default"])
+        self.assertFalse(described["a/one"]["loaded"])
+        self.assertEqual(described["b/two"]["methods"], ["baseline"])
+        self.assertNotEqual(registry.audit_context("b/two")["id"], registry.audit_context("c/three")["id"])
+        with self.assertRaises(ValueError):
+            registry.resolve("unknown")
+        self.assertEqual(parse_model_list(" b/two , a/one,b/two", "a/one"), ["b/two", "a/one"])
+        self.assertEqual(parse_model_list(None, "a/one"), ["a/one"])
+        self.assertEqual(artifact_root_for(Path("r"), "a/one", "a/one"), Path("r/methods"))
+        self.assertEqual(artifact_root_for(Path("r"), "b/two", "a/one"), Path("r/models/b__two/methods"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,220 @@
+{
+ "title": "チャットUI刷新（モノクロ・ChatGPT型レイアウト・モデル切替・添付）のサーバー反映と検証",
+ "created_at": "2026-09-12T16:47:57Z",
+ "url": "http://100.91.77.114:8768/",
+ "deployment": {
+  "method": "deploy/deploy-chat.sh（rsync → systemd --user restart breakllm-chat.service）",
+  "service_restarted_at": "2026-09-12T16:47:12Z",
+  "application_startup_complete_at": "2026-09-12T16:47:18Z",
+  "exec_main_pid": 3005931,
+  "ui_build": "chat-ui/dist（vite build, tsc --noEmit 通過）",
+  "backend_files": [
+   "src/heretic/chat_service/app.py",
+   "src/heretic/chat_service/runtime.py",
+   "src/heretic/chat_service/registry.py",
+   "src/heretic/chat_service/attachments.py"
+  ],
+  "frontend_files": [
+   "chat-ui/src/main.tsx",
+   "chat-ui/src/style.css",
+   "chat-ui/src/response-audit.css",
+   "chat-ui/index.html",
+   "chat-ui/public/breakllm-logo.jpg",
+   "chat-ui/public/breakllm-mark.png"
+  ],
+  "env": {
+   "BREAKLLM_MODEL": "Qwen/Qwen3-1.7B",
+   "BREAKLLM_MODELS": "未設定（1件）",
+   "BREAKLLM_MAX_LOADED": "既定 1"
+  }
+ },
+ "gpu_observation": {
+  "before_restart": {
+   "checked_at": "2026-09-12T16:46:56Z",
+   "used_mib": 92196,
+   "free_mib": 5053
+  },
+  "after_startup": {
+   "used_mib": 92210,
+   "free_mib": 5039,
+   "breakllm_chat_process_mib": 3998
+  },
+  "note": "GPU は他サービスと共有。モデル常駐は BREAKLLM_MAX_LOADED（既定1）件で、追加モデルは切替時に LRU で入れ替える。"
+ },
+ "local_tests": {
+  "command": "cd tests && PYTHONPATH=../src python3 -m unittest test_chat_service test_response_audit",
+  "ran": 21,
+  "passed": 21,
+  "added": [
+   "test_attachments_are_inlined_as_text_and_images_are_marked",
+   "test_chat_accepts_multipart_content_and_sends_flattened_text_to_the_model",
+   "test_models_endpoint_lists_models_and_methods_follow_the_selected_model",
+   "test_registry_loads_lazily_and_evicts_least_recently_used"
+  ]
+ },
+ "server_api_verification": {
+  "checked_at": "2026-09-12T16:47:57Z",
+  "base_url": "http://100.91.77.114:8768",
+  "health": {
+   "status": "ready",
+   "model": "Qwen/Qwen3-1.7B",
+   "models": [
+    "Qwen/Qwen3-1.7B"
+   ],
+   "loaded_models": [
+    "Qwen/Qwen3-1.7B"
+   ],
+   "methods": [
+    "autodan",
+    "baseline",
+    "gcg",
+    "mse",
+    "pair",
+    "soft"
+   ],
+   "busy": false
+  },
+  "models": {
+   "default": "Qwen/Qwen3-1.7B",
+   "models": [
+    {
+     "id": "Qwen/Qwen3-1.7B",
+     "label": "Qwen3-1.7B",
+     "default": true,
+     "loaded": true,
+     "supports_images": false,
+     "methods": [
+      "autodan",
+      "baseline",
+      "gcg",
+      "mse",
+      "pair",
+      "soft"
+     ]
+    }
+   ]
+  },
+  "methods_default": {
+   "model": "Qwen/Qwen3-1.7B",
+   "supports_images": false,
+   "methods": [
+    {
+     "id": "baseline",
+     "label": "baseline",
+     "kind": "original",
+     "adaptation": "Frozen-model continuous input prompt tuning."
+    },
+    {
+     "id": "autodan",
+     "label": "autodan",
+     "kind": "text",
+     "adaptation": "Same-model proposer; target NLL fitness, held-out selection; compact PAIR feedback / AutoDAN genetic adaptation, not paper-level ASR reproduction."
+    },
+    {
+     "id": "gcg",
+     "label": "gcg",
+     "kind": "text",
+     "adaptation": "Single-model universal GCG, one training-example gradient per iteration, exact re-tokenized candidate scoring."
+    },
+    {
+     "id": "mse",
+     "label": "mse",
+     "kind": "soft",
+     "adaptation": "Concept-span MSE with held-out NLL checkpoint selection; no claim of exact MSE-Break reproduction."
+    },
+    {
+     "id": "pair",
+     "label": "pair",
+     "kind": "text",
+     "adaptation": "Same-model proposer; target NLL fitness, held-out selection; compact PAIR feedback / AutoDAN genetic adaptation, not paper-level ASR reproduction."
+    },
+    {
+     "id": "soft",
+     "label": "soft",
+     "kind": "soft",
+     "adaptation": "Frozen-model continuous input prompt tuning."
+    }
+   ]
+  },
+  "methods_for_model": {
+   "model": "Qwen/Qwen3-1.7B",
+   "supports_images": false,
+   "methods": [
+    {
+     "id": "baseline",
+     "label": "baseline",
+     "kind": "original",
+     "adaptation": "Frozen-model continuous input prompt tuning."
+    },
+    {
+     "id": "autodan",
+     "label": "autodan",
+     "kind": "text",
+     "adaptation": "Same-model proposer; target NLL fitness, held-out selection; compact PAIR feedback / AutoDAN genetic adaptation, not paper-level ASR reproduction."
+    },
+    {
+     "id": "gcg",
+     "label": "gcg",
+     "kind": "text",
+     "adaptation": "Single-model universal GCG, one training-example gradient per iteration, exact re-tokenized candidate scoring."
+    },
+    {
+     "id": "mse",
+     "label": "mse",
+     "kind": "soft",
+     "adaptation": "Concept-span MSE with held-out NLL checkpoint selection; no claim of exact MSE-Break reproduction."
+    },
+    {
+     "id": "pair",
+     "label": "pair",
+     "kind": "text",
+     "adaptation": "Same-model proposer; target NLL fitness, held-out selection; compact PAIR feedback / AutoDAN genetic adaptation, not paper-level ASR reproduction."
+    },
+    {
+     "id": "soft",
+     "label": "soft",
+     "kind": "soft",
+     "adaptation": "Frozen-model continuous input prompt tuning."
+    }
+   ]
+  },
+  "unknown_model_status": 422,
+  "audit_context_id": "f2de34f7b7db68452f233f5ed4c5515c219fcb738de4ef1688336af8513ac207",
+  "multipart_chat": {
+   "status": 200,
+   "seconds": 4.7,
+   "model": "Qwen/Qwen3-1.7B",
+   "method": "soft",
+   "context_id_matches": true,
+   "assessment": "non_refusal",
+   "response": "CSVファイルの「数量」の合計は、りんご 3、みかん 5 の合計で、**8** です。"
+  },
+  "rejected_unknown_model_chat_status": 422,
+  "rejected_empty_attachment_only_text_status": 422
+ },
+ "browser_verification": {
+  "url": "http://100.91.77.114:8768/",
+  "viewport": "1360x860",
+  "console_errors": 0,
+  "console_warnings": 0,
+  "screenshot": "reports/ui-redesign-20260912.png",
+  "observed": [
+   "サイドバー（ロゴ・新しいチャット・チャット/応答を比較/拒否率の評価・会話の履歴・レポート・モデル名・テーマ切替）",
+   "チャット画面上部のモデルメニューと適用方式メニュー、ツール切替",
+   "入力欄の「＋」添付ボタンとヒント文",
+   "初期選択 Qwen3-1.7B / Soft Prompt"
+  ],
+  "mock_checks_before_deploy": [
+   "モデル切替（3件・読み込み中表示）",
+   "CSV＋画像の添付プレビューと送信、履歴タイトル付与",
+   "モバイル幅（420px）でのドロワーと添付表示",
+   "ダークテーマ"
+  ]
+ },
+ "passed": true,
+ "limitations": [
+  "現在の提供モデルは Qwen3-1.7B のみで、テキスト専用。画像は内容を読まずファイル名のみ渡し、UIにその旨を表示する。",
+  "会話履歴（スレッド）はブラウザー側のメモリ保持で、再読み込みで消える（従来どおり）。",
+  "会話履歴の削除メニュー表記（Delete）は OpenUI 内部の英語のまま。"
+ ]
+}

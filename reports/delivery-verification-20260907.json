@@ -1,0 +1,31 @@
+{
+  "url": "http://100.91.77.114:8768/slides/breakllm-research-20260907/index.html",
+  "page_errors": [],
+  "failed_requests": [],
+  "slides": 34,
+  "keyboard_navigation": true,
+  "pdf_and_zip_hashes_match": true,
+  "health": {
+    "status": "ready",
+    "model": "Qwen/Qwen3-1.7B",
+    "methods": ["baseline", "autodan", "gcg", "mse", "pair", "soft"],
+    "busy": false
+  },
+  "passed": true,
+  "gpu_observation": {
+    "checked_at": "2026-09-07T05:36:37.344416+00:00",
+    "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+    "used_mib": 86978,
+    "free_mib": 10270,
+    "utilization_percent": 0,
+    "processes": [
+      {"pid": 1300766, "application": "PersonaVAE API", "used_mib": 62004},
+      {"pid": 2277396, "application": "BreakLLM coding model", "used_mib": 20970},
+      {"pid": 2463736, "application": "BreakLLM chat", "used_mib": 3984}
+    ],
+    "interpretation": "Single observation, not peak memory or proof that another project is unused."
+  },
+  "services_active": ["breakllm-chat.service", "breakllm-chat-redirect.service"],
+  "chat_verification": "reports/chat-service-recovery-20260907.json",
+  "slide_verification": "slides/breakllm-research-20260907/VALIDATION.json"
+}

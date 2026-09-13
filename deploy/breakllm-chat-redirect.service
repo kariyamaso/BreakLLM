@@ -1,0 +1,13 @@
+[Unit]
+Description=Redirect former BreakLLM development URL to OpenUI
+After=network-online.target breakllm-chat.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/ubuntu/kariyama/BreakLLM/deploy/chat-redirect.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

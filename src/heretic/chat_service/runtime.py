@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import json
+import logging
 import re
 import threading
 import time
@@ -13,6 +14,7 @@ from heretic.prompt_lab.data import Template
 from heretic.prompt_lab.engine import PromptEngine, load_artifact
 
 JAPANESE_SYSTEM = "特に言語の指定がなければ、日本語で回答してください。"
+log = logging.getLogger(__name__)
 
 
 class ChatEngine(PromptEngine):
@@ -71,7 +73,12 @@ class Runtime:
         if artifact_root.is_dir():
             for directory in sorted(artifact_root.iterdir()):
                 if (directory / "artifact.json").is_file():
-                    metadata, soft = load_artifact(directory, self.engine)
+                    try:
+                        metadata, soft = load_artifact(directory, self.engine)
+                    except ValueError as error:
+                        # Artifacts are trained per model; skip ones from another model.
+                        log.warning("Skipping artifact %s for %s: %s", directory.name, model_id, error)
+                        continue
                     self.methods[directory.name] = (
                         Template(**metadata["template"]),
                         soft,
@@ -80,8 +87,9 @@ class Runtime:
 
     @torch.no_grad()
     def complete(
-        self, messages: list[dict], method: str, *, tools=None, max_new_tokens=384
-    ) -> str:
+        self, messages: list[dict], method: str, *, tools=None, max_new_tokens=384,
+        return_metadata=False,
+    ):
         if method not in self.methods:
             raise ValueError(f"Unknown method: {method}")
         template, soft = self.methods[method]
@@ -108,7 +116,14 @@ class Runtime:
             eos_token_id=self.engine.model.generation_config.eos_token_id,
             use_cache=True,
         )
-        return self.engine.tokenizer.decode(output[0], skip_special_tokens=True).strip()
+        response = self.engine.tokenizer.decode(output[0], skip_special_tokens=True).strip()
+        if return_metadata:
+            eos = self.engine.model.generation_config.eos_token_id
+            eos_ids = set(eos if isinstance(eos, list) else [eos])
+            tokens = output[0].tolist()
+            return {"response": response, "generated_tokens": len(tokens),
+                    "finish_reason": "eos" if any(token in eos_ids for token in tokens) else "length"}
+        return response
 
     def chat(
         self, messages: list[dict], method: str, use_tools: bool, max_new_tokens: int
