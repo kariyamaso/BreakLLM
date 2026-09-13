@@ -40,3 +40,7 @@ plots/
 
 # Slide bundle archives (directory is tracked)
 /slides/*.zip
+
+# OpenCode per-project plugin cache and stray optimizer output
+/.opencode/
+/jailbreak_chat/

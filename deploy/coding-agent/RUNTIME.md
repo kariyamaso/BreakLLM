@@ -26,3 +26,11 @@ Never kill an unrelated process to free a port; choose an unused port or stop on
 The canonical app is :8768; :8770 redirects there. Development UI changes appear at :8771.
 After a UI change, check the served page and its API calls. A successful build alone does not prove deployment.
 Report the exact URL, health response, and remaining failures. Do not claim success from a failed HTTP request.
+
+## GPU memory and other people's processes
+
+The GPU is shared with other researchers and with the llama.cpp server that runs this coding agent itself
+(`breakllm-coding-model.service`, llama-server on 127.0.0.1:8787). Never kill, stop, or restart a process to
+free GPU memory; never kill a process you did not start in this session. If `nvidia-smi` shows no room for a
+model or a training run, stop and report the memory table to the user instead. Prefer CPU or smaller models for
+tests. Loading a second copy of a model that the chat service already holds is the usual cause of CUDA OOM.
