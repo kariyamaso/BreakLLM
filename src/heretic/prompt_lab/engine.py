@@ -353,10 +353,17 @@ def load_artifact(
         "text",
     }:
         raise ValueError("Unsupported prompt artifact format.")
-    if engine is not None and metadata["engine"] != engine.identity():
-        raise ValueError(
-            "Artifact model/tokenizer/chat settings differ from the loaded model."
-        )
+    if engine is not None:
+        # max_length is a serving-time sequence cap, not a training invariant: the
+        # soft-prompt vectors and templates are valid regardless of it. Compare
+        # every other identity field so raising the serving context length does not
+        # spuriously invalidate artifacts trained at a smaller cap.
+        saved = {k: v for k, v in metadata["engine"].items() if k != "max_length"}
+        current = {k: v for k, v in engine.identity().items() if k != "max_length"}
+        if saved != current:
+            raise ValueError(
+                "Artifact model/tokenizer/chat settings differ from the loaded model."
+            )
     soft = None
     if metadata["kind"] == "soft":
         weights = path / "soft_prompt.pt"
