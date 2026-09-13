@@ -23,7 +23,10 @@ type ModelInfo = {id: string; label: string; default: boolean; loaded: boolean; 
 type Reply = {response: string; seconds: number; method: string; model?: string; tools: unknown[]; assessment?: {status: string}};
 type Mode = "light" | "dark";
 type Attachment = {id: string; name: string; mime: string; size: number; base64: string; kind: "image" | "file"; textLike: boolean};
-const labels: Record<string, string> = {baseline: "原モデル", soft: "Soft Prompt", mse: "MSEによる内部表現誘導", gcg: "GCG", pair: "PAIR", autodan: "AutoDAN"};
+const labels: Record<string, string> = {escalate: "自動エスカレーション", baseline: "原モデル", soft: "Soft Prompt", mse: "MSEによる内部表現誘導", gcg: "GCG", pair: "PAIR", autodan: "AutoDAN"};
+// Escalation is a pseudo-method: the backend answers at baseline and, only if the
+// judge calls it a refusal, walks the model's loaded prompt methods until one is not.
+const ESCALATE = "escalate";
 const statusLabel: Record<string, string> = {refusal: "拒否を検出", non_refusal: "非拒否・成功は未確認", unknown: "判定不能"};
 
 // Attachment limits mirror the backend (5 parts, ~4 MB image / ~2 MB file as data URLs).
@@ -149,7 +152,7 @@ function Sidebar({settings}: {settings: Settings}) {
   const newThread = useThreadList(s => s.switchToNewThread);
   const inChat = nav.path === undefined;
   return <>
-    <AgentInterface.SidebarHeader logo={<img className="brand-logo" src="/breakllm-logo.jpg" alt="Break LLM"/>} agentName={<span className="brand-caption">研究用チャット</span>}/>
+    <AgentInterface.SidebarHeader logo={<img className="brand-logo" src="/breakllm-logo.jpg" alt="Break LLM"/>}/>
     <div className="side-primary">
       <AgentInterface.SidebarItem className="new-chat" icon={Icon.edit} onClick={() => {newThread(); nav.navigate(undefined); closeMobileSidebar();}}>新しいチャット</AgentInterface.SidebarItem>
       <AgentInterface.SidebarItem icon={Icon.chat} selected={inChat} onClick={() => {nav.navigate(undefined); closeMobileSidebar();}}>チャット</AgentInterface.SidebarItem>
@@ -180,7 +183,8 @@ function ModelPicker({settings, compact}: {settings: Settings; compact?: boolean
     <Dropdown ariaLabel="モデル" icon={Icon.cube} value={settings.model} busy={settings.modelLoading} onChange={settings.setModel}
       options={settings.models.map(m => ({id: m.id, label: m.label, hint: m.id, badge: m.loaded ? "読み込み済み" : undefined}))}/>
     <Dropdown ariaLabel="適用方式" caption="適用方式" value={settings.method} busy={settings.modelLoading} onChange={settings.setMethod}
-      options={settings.methods.map(m => ({id: m.id, label: labels[m.id] || m.id, hint: m.id === "baseline" ? "介入なし" : m.adaptation}))}/>
+      options={[{id: ESCALATE, label: labels[ESCALATE], hint: "拒否されたら方式を自動で切り替え"},
+        ...settings.methods.map(m => ({id: m.id, label: labels[m.id] || m.id, hint: m.id === "baseline" ? "介入なし" : m.adaptation}))]}/>
     <label className="tools-toggle"><input type="checkbox" checked={settings.tools} onChange={e => settings.setTools(e.target.checked)}/><span>ツールを使う</span></label>
   </div>;
 }
@@ -372,7 +376,8 @@ function App() {
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "モデル情報を取得できませんでした");
       const data = await response.json() as {model: string; supports_images: boolean; methods: Method[]};
       setMethods(data.methods); setSupportsImages(Boolean(data.supports_images));
-      setMethod(current => data.methods.some(m => m.id === current) ? current : data.methods.some(m => m.id === "soft") ? "soft" : "baseline");
+      // Default to automatic escalation; keep the user's choice if they picked one.
+      setMethod(current => (current === ESCALATE || data.methods.some(m => m.id === current)) ? current : ESCALATE);
       await refreshModels().catch(() => undefined);
     } catch (e) { setError(String(e)); }
     finally { setModelLoading(false); }

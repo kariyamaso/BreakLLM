@@ -280,6 +280,30 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(response.json()["context_id"], context["id"])
             self.assertEqual(response.json()["response"], "回答")
 
+    def test_escalate_method_is_accepted_and_routes_to_escalation(self):
+        from heretic.chat_service import response_audit
+
+        runtime = fake_runtime()
+        with contextlib.ExitStack() as stack:
+            for item in app_state(runtime):
+                stack.enter_context(item)
+            api.app.state.registry.contexts["test"] = {"id": "ctx"}
+            stack.enter_context(patch.object(api.app.state, "jailbreak_chat", Mock(judge=Mock()), create=True))
+            stack.enter_context(patch.object(response_audit, "run_escalation", return_value={
+                "response": "回答", "method": "gcg", "attempts": 2, "tools": [], "seconds": 0.0,
+                "assessment": {"status": "non_refusal", "judge": "G", "refused": False},
+                "optimization_log": [], "optimization_performed": True,
+            }))
+            client = TestClient(api.app)
+            # "escalate" is a pseudo-method: accepted even though it is not a trained artifact.
+            response = client.post(
+                "/api/chat/complete",
+                json={"messages": [{"role": "user", "content": "q"}], "method": "escalate"},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["method"], "gcg")
+            self.assertEqual(response.json()["model"], "test")
+
     def test_openui_sse_protocol_contains_response_and_completion_marker(self):
         runtime = fake_runtime()
         with contextlib.ExitStack() as stack:

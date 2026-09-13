@@ -206,13 +206,20 @@ async def archived_report():
     return FileResponse(path, media_type="text/html")
 
 
+ESCALATE = "escalate"  # pseudo-method: baseline, then refusal-driven escalation
+
+
 def validate_chat(request: ChatRequest):
     registry = app.state.registry
     try:
         model_id = registry.resolve(request.model)
     except ValueError as error:
         raise HTTPException(422, "指定したモデルは利用できません。") from error
-    if registry.is_loaded(model_id) and request.method not in registry.get(model_id).methods:
+    if (
+        request.method != ESCALATE
+        and registry.is_loaded(model_id)
+        and request.method not in registry.get(model_id).methods
+    ):
         raise HTTPException(422, "指定した方式は利用できません。")
     if request.messages[-1].role != "user":
         raise HTTPException(422, "最後のメッセージには質問を指定してください。")
@@ -236,11 +243,34 @@ def plain_messages(request: ChatRequest) -> list[dict]:
 
 
 async def execute(request: ChatRequest):
+    from .response_audit import escalation_for, run_escalation
+
     async with app.state.busy:
         runtime = await asyncio.to_thread(app.state.registry.get, request.model)
+        messages = plain_messages(request)
+        # Escalation mode: baseline, then, if judged a refusal, walk the model's
+        # loaded prompt methods until one is not refused. Runs on the selected model.
+        if request.method == ESCALATE:
+            escalation = escalation_for(runtime, None)
+            work = asyncio.create_task(
+                asyncio.to_thread(
+                    run_escalation,
+                    runtime,
+                    app.state.jailbreak_chat.judge,
+                    messages[-1]["content"],
+                    request.max_new_tokens,
+                    escalation,
+                )
+            )
+            try:
+                result = await asyncio.shield(work)
+                result["model"] = runtime.model_id
+                return result
+            except asyncio.CancelledError:
+                await work
+                raise
         if request.method not in runtime.methods:
             raise ValueError("指定した方式はこのモデルでは利用できません。")
-        messages = plain_messages(request)
         work = asyncio.create_task(
             asyncio.to_thread(
                 runtime.chat,
@@ -314,9 +344,20 @@ async def chat(request: ChatRequest):
                     yield ": working\n\n"
             result = task.result()
             content = result["response"]
+            method_label = {"baseline": "原モデル", "soft": "Soft Prompt", "mse": "MSE誘導", "gcg": "GCG", "pair": "PAIR", "autodan": "AutoDAN"}
+            status_label = {"refusal": "拒否を検出", "non_refusal": "非拒否・成功は未確認", "unknown": "判定不能"}
+            # Escalation trace: which interventions were tried and which was adopted.
+            log = result.get("optimization_log") or []
+            if len(log) > 1 or result.get("optimization_performed"):
+                lines = "\n".join(
+                    f"- 試行{row['attempt']}・{method_label.get(row['method'], row['method'])}：{status_label.get(row['status'], row['status'])}"
+                    for row in log
+                )
+                adopted = method_label.get(result.get("method"), result.get("method"))
+                content += f"\n\n---\n**エスカレーション（{result.get('attempts', len(log))}回）→ 採用：{adopted}**\n{lines}"
             if "assessment" in result:
                 judged = result["assessment"]
-                label = {"refusal": "拒否を検出", "non_refusal": "非拒否・成功は未確認", "unknown": "判定不能"}[judged["status"]]
+                label = status_label[judged["status"]]
                 content += f"\n\n---\n**LLMによる拒否判定：{label}**\n\n判定モデル：{judged['judge']}"
             if result["tools"]:
                 evidence = "\n\n---\n**実行したツール**\n"

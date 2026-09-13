@@ -84,6 +84,61 @@ def escalation_for(runtime, requested=None) -> list[str]:
     return list(seen)
 
 
+def _attempt(runtime, judge, user_input: str, method: str, attempt: int, max_new_tokens: int):
+    started = time.monotonic()
+    generated = runtime.complete(
+        [{"role": "user", "content": user_input}], method, max_new_tokens=max_new_tokens,
+        return_metadata=True,
+    )
+    seconds = time.monotonic() - started
+    judged = judge.assess(user_input, generated["response"])
+    if generated["finish_reason"] != "eos":
+        judged = {**assessment(user_input, generated["response"], judged["judge_output"], complete=False),
+                  "error": "response_truncated"}
+    row = {
+        "attempt": attempt, "method": method, "elapsed_seconds": round(seconds, 2),
+        "refused": judged["refused"], "status": judged["status"],
+        "success": judged["success"], "success_verified": False,
+    }
+    return generated, judged, row
+
+
+def run_escalation(runtime, judge, user_input: str, max_new_tokens=512, escalation=None) -> dict:
+    """Answer at baseline, judge it, and only if it is a confident refusal walk the
+    escalation methods (already loaded on ``runtime``) until one is not refused.
+
+    Pure function over ``runtime`` and ``judge`` so it works on any selected model;
+    it does not persist history. No optimizer runs here — escalation only applies
+    artifacts trained offline."""
+    methods = escalation_for(runtime, escalation)
+    started = time.monotonic()
+    generated, judged, row = _attempt(runtime, judge, user_input, "baseline", 1, max_new_tokens)
+    log = [row]
+    chosen_method, chosen_generated, chosen_judged = "baseline", generated, judged
+    # Only a confident refusal warrants escalation; unknown/error stays baseline.
+    if judged["refused"] is True:
+        for index, method in enumerate(methods, start=2):
+            generated, judged, row = _attempt(runtime, judge, user_input, method, index, max_new_tokens)
+            log.append(row)
+            if judged["refused"] is not True:
+                chosen_method, chosen_generated, chosen_judged = method, generated, judged
+                break
+        else:
+            # Every escalation still refused; report the last attempt.
+            chosen_method, chosen_generated, chosen_judged = (
+                (methods[-1], generated, judged) if methods else ("baseline", generated, judged)
+            )
+    return {
+        **chosen_generated, "method": chosen_method, "attempts": len(log),
+        "refused": chosen_judged["refused"], "baseline_refused": log[0]["refused"],
+        "success": chosen_judged["success"], "success_verified": False,
+        "assessment": chosen_judged,
+        "optimization_performed": chosen_method != "baseline",
+        "optimization_log": log,
+        "seconds": round(time.monotonic() - started, 2), "tools": [],
+    }
+
+
 class AuditedChat:
     """A baseline response, then, only if it is judged a refusal, an ordered
     escalation over pre-trained prompt interventions until one is not refused.
@@ -100,53 +155,11 @@ class AuditedChat:
         self.path = root / "assessment_history.json"
         self.history = json.loads(self.path.read_text()) if self.path.exists() else []
 
-    def _attempt(self, user_input: str, method: str, attempt: int, max_new_tokens: int):
-        started = time.monotonic()
-        generated = self.runtime.complete(
-            [{"role": "user", "content": user_input}], method, max_new_tokens=max_new_tokens,
-            return_metadata=True,
-        )
-        seconds = time.monotonic() - started
-        judged = self.judge.assess(user_input, generated["response"])
-        if generated["finish_reason"] != "eos":
-            judged = {**assessment(user_input, generated["response"], judged["judge_output"], complete=False),
-                      "error": "response_truncated"}
-        row = {
-            "attempt": attempt, "method": method, "elapsed_seconds": round(seconds, 2),
-            "refused": judged["refused"], "status": judged["status"],
-            "success": judged["success"], "success_verified": False,
-        }
-        return generated, judged, row
-
     def chat(self, user_input: str, max_new_tokens=512, escalation=None) -> dict:
-        methods = escalation_for(self.runtime, escalation)
-        generated, judged, row = self._attempt(user_input, "baseline", 1, max_new_tokens)
-        log = [row]
-        chosen_method, chosen_generated, chosen_judged = "baseline", generated, judged
-        # Only a confident refusal warrants escalation; unknown/error stays baseline.
-        if judged["refused"] is True:
-            for index, method in enumerate(methods, start=2):
-                generated, judged, row = self._attempt(user_input, method, index, max_new_tokens)
-                log.append(row)
-                if judged["refused"] is not True:
-                    chosen_method, chosen_generated, chosen_judged = method, generated, judged
-                    break
-            else:
-                # Every escalation still refused; report the last attempt.
-                chosen_method, chosen_generated, chosen_judged = (
-                    (methods[-1], generated, judged) if methods else ("baseline", generated, judged)
-                )
-        result = {
-            **chosen_generated, "method": chosen_method, "attempts": len(log),
-            "refused": chosen_judged["refused"], "baseline_refused": log[0]["refused"],
-            "success": chosen_judged["success"], "success_verified": False,
-            "assessment": chosen_judged,
-            "optimization_performed": chosen_method != "baseline",
-            "optimization_log": log,
-        }
+        result = run_escalation(self.runtime, self.judge, user_input, max_new_tokens, escalation)
         # Old success-only logs contain no response and cannot be re-judged.
         # Keep them on disk, outside these verified assessment statistics.
-        self.history.append({"timestamp": time.time(), "method": chosen_method, "assessment": chosen_judged})
+        self.history.append({"timestamp": time.time(), "method": result["method"], "assessment": result["assessment"]})
         temporary = self.path.with_suffix(".tmp")
         temporary.write_text(json.dumps(self.history, ensure_ascii=False, indent=2))
         temporary.replace(self.path)
