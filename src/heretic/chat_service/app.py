@@ -60,7 +60,7 @@ class ChatRequest(BaseModel):
     method: str = "baseline"
     enable_tools: bool = False
     assess_response: bool = False
-    max_new_tokens: int = Field(default=384, ge=16, le=768)
+    max_new_tokens: int = Field(default=1024, ge=16, le=4096)
 
 
 @asynccontextmanager
@@ -404,7 +404,7 @@ async def chat(request: ChatRequest):
 class JailbreakChatRequest(BaseModel):
     messages: list[Message] = Field(min_length=1, max_length=24)
     max_attempts: int = Field(default=3, ge=1, le=10)
-    max_new_tokens: int = Field(default=512, ge=16, le=768)
+    max_new_tokens: int = Field(default=1024, ge=16, le=4096)
     # Ordered prompt methods to escalate through when the baseline is refused;
     # null uses the default order. Only methods the model has loaded are used.
     escalation: list[str] | None = None

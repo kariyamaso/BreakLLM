@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AgentInterface, createTheme, fetchLLM, openAIAdapter, openAIMessageFormat, useNav } from "@openuidev/react-ui";
+import { AgentInterface, createTheme, fetchLLM, MarkDownRenderer, openAIAdapter, openAIMessageFormat, useNav, type AssistantMessageComponent } from "@openuidev/react-ui";
 import { useThread, useThreadList, type InputContent, type Message as ChatMessage, type MessageFormat } from "@openuidev/react-headless";
+import remarkGfm from "remark-gfm";
 import "@openuidev/react-ui/components.css";
 import "@openuidev/react-ui/styles/index.css";
 import "./style.css";
@@ -105,6 +106,16 @@ const Icon = {
   check: svg(<path d="m5 12 5 5 9-10"/>, 14, {strokeWidth: 2.2}),
   cube: svg(<><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 4 7.5M12 12l8-4.5M12 12v9"/></>, 16),
 };
+
+// The stock assistant renderer omits remark-gfm, so pipe tables render as raw
+// text. Render assistant messages ourselves with GFM enabled (tables, task lists,
+// strikethrough); images/figures are styled responsively in style.css.
+const MARKDOWN_OPTIONS = {remarkPlugins: [remarkGfm]};
+const AssistantMessage: AssistantMessageComponent = ({message}) => (
+  <div className="assistant-md">
+    <MarkDownRenderer textMarkdown={typeof message.content === "string" ? message.content : String(message.content ?? "")} options={MARKDOWN_OPTIONS}/>
+  </div>
+);
 
 // OpenUI closes the mobile drawer itself only for path-based SidebarItems; the
 // thread view has no path, so tap the drawer overlay (mobile only) to close it.
@@ -319,7 +330,7 @@ function Compare({settings}: {settings: Settings}) {
   async function compare(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setBefore(undefined); setAfter(undefined);
     const run = async (id: string) => {
-      const response = await fetch("/api/chat/complete", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: [{role: "user", content: prompt}], model: settings.model, method: id, enable_tools: false, max_new_tokens: 384, assess_response: true})});
+      const response = await fetch("/api/chat/complete", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: [{role: "user", content: prompt}], model: settings.model, method: id, enable_tools: false, max_new_tokens: 1024, assess_response: true})});
       const value = await response.json(); if (!response.ok) throw new Error(value.detail || "生成に失敗しました"); return value as Reply;
     };
     try { setBefore(await run("baseline")); setAfter(await run(method)); }
@@ -387,11 +398,11 @@ function App() {
   }, [refreshModels, loadMethods]);
   const setModel = (id: string) => { if (id === model || modelLoading) return; setModelState(id); void loadMethods(id); };
 
-  const llm = useMemo(() => fetchLLM({url: "/api/chat", streamAdapter: openAIAdapter(), messageFormat, body: {model: model || undefined, method, enable_tools: tools, max_new_tokens: 512, assess_response: true}}), [model, method, tools]);
+  const llm = useMemo(() => fetchLLM({url: "/api/chat", streamAdapter: openAIAdapter(), messageFormat, body: {model: model || undefined, method, enable_tools: tools, max_new_tokens: 2048, assess_response: true}}), [model, method, tools]);
   const settings: Settings = {models, model, setModel, modelLoading, supportsImages, methods, method, setMethod, tools, setTools, mode, setMode};
   return <div className="app">
     {error && <div className="banner" role="alert">{error}</div>}
-    <AgentInterface llm={llm} agentName="BreakLLM" logoUrl="/breakllm-mark.png" theme={{mode, lightTheme, darkTheme}} scrollVariant="always">
+    <AgentInterface llm={llm} agentName="BreakLLM" logoUrl="/breakllm-mark.png" theme={{mode, lightTheme, darkTheme}} scrollVariant="always" components={{AssistantMessage}}>
       <AgentInterface.Sidebar><Sidebar settings={settings}/></AgentInterface.Sidebar>
       <AgentInterface.MobileHeader logo={<img className="brand-mark" src="/breakllm-mark.png" alt=""/>} agentName={<span className="brand-name">BreakLLM</span>}/>
       <AgentInterface.ThreadHeader><ModelPicker settings={settings}/></AgentInterface.ThreadHeader>

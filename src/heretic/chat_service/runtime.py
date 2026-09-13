@@ -66,7 +66,7 @@ class Runtime:
         )
         model = model.to(device)
         self.engine = ChatEngine(
-            model, tokenizer, model_id=model_id, max_length=4096, system=system
+            model, tokenizer, model_id=model_id, max_length=16384, system=system
         )
         self.methods = {"baseline": (Template(), None)}
         self.metadata = {"baseline": {"label": "Original", "method": "baseline"}}

@@ -143,3 +143,13 @@ html[data-theme=dark] .brand-mark{filter:invert(1);mix-blend-mode:screen}
 .openui-agent-thread-message-user__content:has(.openui-agent-thread-message-user__chip,.openui-agent-thread-message-user__image){align-items:stretch}
 .openui-agent-thread-message-user__image{max-width:min(100%,320px);max-height:240px;width:auto;height:auto;object-fit:contain;border-radius:12px;align-self:flex-start}
 .openui-agent-thread-message-user__chip{align-self:flex-start}
+
+/* Assistant markdown: responsive tables, images and figures. OpenUI maps table
+   cells to its own Table components; these rules guard width and media sizing. */
+.assistant-md{width:100%;overflow-wrap:anywhere}
+.assistant-md .openui-markdown-renderer{max-width:100%}
+.assistant-md table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+.assistant-md img{max-width:100%;height:auto;border-radius:8px;display:block;margin:8px 0}
+.assistant-md figure{margin:12px 0;text-align:center}
+.assistant-md figure figcaption{margin-top:6px;font-size:12px;color:var(--openui-text-neutral-tertiary,#888)}
+.assistant-md pre{max-width:100%;overflow-x:auto}
