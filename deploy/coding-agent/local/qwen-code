@@ -3,7 +3,7 @@
 set -euo pipefail
 share=${QWEN_CODE_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/qwen-code}
 if [[ ! -f $share/config.env ]]; then
-  echo "qwen-code: not installed in $share. Run: ssh hb-gpu-0 cat /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/install.sh | bash" >&2
+  echo "qwen-code: not installed in $share. Run: ssh hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash" >&2
   exit 1
 fi
 source "$share/config.env"
@@ -36,7 +36,7 @@ start_tunnel() {
 
 case ${1:-} in
   update)
-    exec bash -c 'ssh -n "$1" "cat $2/deploy/coding-agent/local/install.sh" | bash -s -- --host "$1" --port "$3" --server-dir "$2"' \
+    exec bash -c 'ssh -n "$1" "bash $2/deploy/coding-agent/local/bundle.sh" | bash -s -- --host "$1" --port "$3" --server-dir "$2"' \
       _ "$host" "$QWEN_CODE_SERVER_DIR" "$port"
     ;;
   tunnel)

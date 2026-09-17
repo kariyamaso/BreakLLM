@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Install qwen-code on your own computer (macOS or Linux, including WSL):
-#   ssh hb-gpu-0 cat /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/install.sh | bash
+#   ssh hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash
+# bundle.sh prepends the client files, so no second SSH connection is needed.
 # Options after `bash -s --`: --host SSH_HOST  --port LOCAL_PORT  --server-dir DIR
 set -euo pipefail
 host=hb-gpu-0
 port=18787
-server_dir=/home/ubuntu/kariyama/BreakLLM
+server_dir=${QWEN_CODE_BUNDLE_SERVER_DIR:-/home/ubuntu/kariyama/BreakLLM}
 while (($#)); do
   case $1 in
     --host) host=$2; shift 2 ;;
@@ -31,11 +32,17 @@ esac
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/files"
-# stdin is this script when piped into bash, so ssh must not read it.
-echo "Fetching client files from $host:$server_dir"
-ssh -n -o ClearAllForwardings=yes "$host" \
-  "tar -C '$server_dir/deploy/coding-agent' -cf - client.py opencode.json context-guard.mjs versions.env local" |
-  tar -C "$work/files" -xf -
+if [[ -n ${QWEN_CODE_BUNDLE:-} ]]; then
+  printf '%s' "$QWEN_CODE_BUNDLE" |
+    python3 -c 'import base64, sys; sys.stdout.buffer.write(base64.b64decode(sys.stdin.read()))' |
+    tar -C "$work/files" -xf -
+else
+  # stdin is this script when piped into bash, so ssh must not read it.
+  echo "Fetching client files from $host:$server_dir"
+  ssh -n -o ClearAllForwardings=yes -o ConnectTimeout=15 "$host" \
+    "tar -C '$server_dir/deploy/coding-agent' -cf - client.py opencode.json context-guard.mjs versions.env local" |
+    tar -C "$work/files" -xf -
+fi
 source "$work/files/versions.env"
 expected=${!key}
 
