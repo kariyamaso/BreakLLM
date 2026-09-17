@@ -212,7 +212,7 @@ class CodingAgentTests(unittest.TestCase):
             root = Path(directory)
             fake = root / "opencode"
             fake.write_text(
-                "#!/usr/bin/env python3\nimport os\nprint(os.environ['OPENCODE_CONFIG_CONTENT'])\n"
+                "#!/usr/bin/env python3\nimport os,json\nprint(json.dumps([json.loads(os.environ['OPENCODE_CONFIG_CONTENT']), os.environ.get('OPENCODE_DISABLE_CLAUDE_CODE')]))\n"
             )
             fake.chmod(0o755)
             runtime = root / "RUNTIME.md"
@@ -225,6 +225,7 @@ class CodingAgentTests(unittest.TestCase):
                 "QWEN_CODE_RUNTIME": str(runtime),
                 "XDG_DATA_HOME": str(root / "data"),
             }
+            env.pop("OPENCODE_DISABLE_CLAUDE_CODE", None)
             client_py = str(DEPLOY / "client.py")
             result = subprocess.run(
                 [sys.executable, client_py, "run", "hello"],
@@ -234,7 +235,8 @@ class CodingAgentTests(unittest.TestCase):
                 capture_output=True,
                 check=True,
             )
-            config = json.loads(result.stdout)
+            config, claude_disabled = json.loads(result.stdout)
+            self.assertEqual(claude_disabled, "1")
             self.assertEqual(
                 config["provider"]["hb-gpu-0"]["options"]["baseURL"], f"{api}/v1"
             )

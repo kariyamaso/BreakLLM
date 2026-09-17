@@ -149,6 +149,10 @@ def main(arguments=None):
     config.setdefault("instructions", []).append(str(RUNTIME))
     config.setdefault("plugin", []).append((DEPLOY / "context-guard.mjs").as_uri())
     os.environ["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
+    # ~/.claude/CLAUDE.md and skills can exceed the 16K compaction threshold on their
+    # own, which makes OpenCode compact after every tool call and never finish.
+    os.environ.setdefault("OPENCODE_DISABLE_CLAUDE_CODE", "1")
+    os.environ.setdefault("OPENCODE_DISABLE_EXTERNAL_SKILLS", "1")
     os.chdir(directory)
     if interactive:
         print(
