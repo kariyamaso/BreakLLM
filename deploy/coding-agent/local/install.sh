@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install qwen-code on your own computer (macOS or Linux, including WSL):
-#   ssh hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash
+#   ssh -o ClearAllForwardings=yes hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash
 # bundle.sh prepends the client files, so no second SSH connection is needed.
 # Options after `bash -s --`: --host SSH_HOST  --port LOCAL_PORT  --server-dir DIR
 set -euo pipefail

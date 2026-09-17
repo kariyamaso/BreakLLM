@@ -12,9 +12,9 @@ OpenCodeは手元で動くので、手元のファイルを編集し、手元で
 
 ```bash
 # インストール（python3・curl・tarが必要。OpenCodeはSHA-256を確認して取得します）
-ssh hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash
+ssh -o ClearAllForwardings=yes hb-gpu-0 bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash
 # SSHのホスト名やローカルのポートが違う場合
-ssh myhost bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash -s -- --host myhost --port 18787
+ssh -o ClearAllForwardings=yes myhost bash /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/bundle.sh | bash -s -- --host myhost --port 18787
 
 cd ~/any/project
 qwen-code --new          # 新規会話
