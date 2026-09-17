@@ -4,7 +4,38 @@
 を llama.cpp で動かし、OpenCode から利用する構成です。
 OpenCode がコードの検索・読み取り・編集・コマンド実行と、その結果に応じた続行を担当します。
 
-## 起動
+## 各自のPCから使う（推奨）
+
+`ssh hb-gpu-0` で接続できる人は、自分のPC（macOS / Linux / WSL）のどのディレクトリからでも使えます。
+OpenCodeは手元で動くので、手元のファイルを編集し、手元でコマンドを実行します。
+推論だけをSSHトンネル経由でhb-gpu-0のモデルに送ります。会話履歴も各自のPCに保存されます。
+
+```bash
+# インストール（python3・curl・tarが必要。OpenCodeはSHA-256を確認して取得します）
+ssh hb-gpu-0 cat /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/install.sh | bash
+# SSHのホスト名やローカルのポートが違う場合
+ssh myhost cat /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/install.sh | bash -s -- --host myhost --port 18787
+
+cd ~/any/project
+qwen-code --new          # 新規会話
+qwen-code                # このディレクトリの直前の会話を再開
+qwen-code run '依頼内容'  # 1回だけ実行
+qwen-code history        # 会話の一覧
+qwen-code tunnel status  # トンネルの状態 / tunnel stop で切断
+qwen-code update         # サーバーの最新版で入れ直す
+```
+
+インストール先は `~/.local/share/qwen-code/`（本体・設定）と `~/.local/bin/qwen-code` です。
+トンネルは初回実行時に1本だけ張られ、同じユーザーの複数ウィンドウで共有します。
+`~/.ssh/config` の `LocalForward` は起動しません。`127.0.0.1:18787` が使用中の場合は
+`QWEN_CODE_PORT_OVERRIDE=<空きポート> qwen-code` で変更できます。
+PCがスリープするとトンネルは切れます。`qwen-code` を再実行すると張り直して会話を再開します。
+`app` コマンドはサーバー上でのみ使えます。
+
+モデルの推論スロットは1本です。何人でも接続できますが、生成は1件ずつ順番に処理されます。
+別の人の会話に切り替わるたびに、長い入力（1〜2万トークン）の読み直しに6〜13秒かかります（2026-09-17の実測）。
+
+## hb-gpu-0上で使う
 
 このリポジトリを開いたローカル端末から:
 
@@ -108,8 +139,7 @@ cd /home/ubuntu/kariyama/BreakLLM-dev
 
 ## 開発用clone
 
-開発元は `https://github.com/kariyamaso/BreakLLM.git`、ブランチは
-`feature/japanese-safety-evaluation` です。
+開発元は `https://github.com/kariyamaso/BreakLLM.git`、ブランチは `master` です。
 開発用のcloneと、推論サービスの配置先 `/home/ubuntu/kariyama/BreakLLM` は独立しています。
 agentの推論には稼働中のサーバーを使うので、clone側にGGUFを複製する必要はありません。
 

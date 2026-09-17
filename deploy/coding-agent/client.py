@@ -10,12 +10,17 @@ from pathlib import Path
 
 DEPLOY = Path(__file__).resolve().parent
 ROOT = DEPLOY.parent.parent
+# A local install (local/install.sh) reaches the server model through an SSH tunnel.
+LOCAL = os.environ.get("QWEN_CODE_LOCAL") == "1"
+API = os.environ.get("QWEN_CODE_API", "http://127.0.0.1:8787").rstrip("/")
+OPENCODE = Path(os.environ.get("QWEN_CODE_OPENCODE", ROOT / ".coding-agent/bin/opencode"))
+RUNTIME = Path(os.environ.get("QWEN_CODE_RUNTIME", DEPLOY / "RUNTIME.md"))
 HELP = """qwen-code [--project REMOTE_DIRECTORY] [options or command]
   (no command)          Resume this directory's latest saved conversation
   --new                 Start a new conversation
   --session SESSION_ID  Resume a specific saved conversation
   history [--json]      List this directory's saved conversations (no GPU needed)
-  app start             Start the development UI and verify its URL
+  app start             Start the development UI and verify its URL (server only)
   app status|logs|stop   Inspect or stop that project's development UI
   app --help            Launch other HTTP apps as managed processes
   run MESSAGE           Run a new noninteractive OpenCode task
@@ -101,6 +106,8 @@ def main(arguments=None):
                 print("このディレクトリの履歴はまだありません。")
         return 0
     if args[:1] == ["app"]:
+        if LOCAL:
+            raise ValueError("app commands run on hb-gpu-0: ssh hb-gpu-0, then qwen-code app")
         os.chdir(directory)
         os.execv(sys.executable, [sys.executable, str(DEPLOY / "apps.py"), *args[1:]])
     if dry_run:
@@ -115,7 +122,7 @@ def main(arguments=None):
             )
         )
         return 0
-    binary = ROOT / ".coding-agent/bin/opencode"
+    binary = OPENCODE
     if not binary.is_file():
         raise ValueError(f"OpenCode binary not installed: {binary}")
     # Administrative commands remain usable while the GPU model is stopped.
@@ -124,22 +131,29 @@ def main(arguments=None):
     ) or args[:1] == ["run"]:
         try:
             with urllib.request.urlopen(
-                "http://127.0.0.1:8787/health", timeout=3
+                f"{API}/health", timeout=3
             ) as response:
                 if json.load(response).get("status") != "ok":
                     raise ValueError("Qwen model is not ready")
         except (OSError, urllib.error.URLError, ValueError) as error:
+            hint = (
+                f"Check the SSH tunnel to hb-gpu-0 ({API}); if it is up, ask the server admin."
+                if LOCAL
+                else "Run: systemctl --user start breakllm-coding-model.service."
+            )
             raise ValueError(
-                "Qwen model unavailable. Run: systemctl --user start breakllm-coding-model.service. History and app commands remain available."
+                f"Qwen model unavailable. {hint} History commands remain available."
             ) from error
     config = json.loads((DEPLOY / "opencode.json").read_text())
-    config.setdefault("instructions", []).append(str(DEPLOY / "RUNTIME.md"))
+    config["provider"]["hb-gpu-0"]["options"]["baseURL"] = f"{API}/v1"
+    config.setdefault("instructions", []).append(str(RUNTIME))
     config.setdefault("plugin", []).append((DEPLOY / "context-guard.mjs").as_uri())
     os.environ["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
     os.chdir(directory)
     if interactive:
         print(
-            f"作業先: {directory}\n履歴: qwen-code history / 新規: qwen-code --new\nアプリ: qwen-code app start",
+            f"作業先: {directory}\n履歴: qwen-code history / 新規: qwen-code --new"
+            + ("" if LOCAL else "\nアプリ: qwen-code app start"),
             file=sys.stderr,
         )
     os.execv(binary, [str(binary), *args])

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# qwen-code on your own computer: OpenCode runs here, the model runs on hb-gpu-0.
+set -euo pipefail
+share=${QWEN_CODE_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/qwen-code}
+if [[ ! -f $share/config.env ]]; then
+  echo "qwen-code: not installed in $share. Run: ssh hb-gpu-0 cat /home/ubuntu/kariyama/BreakLLM/deploy/coding-agent/local/install.sh | bash" >&2
+  exit 1
+fi
+source "$share/config.env"
+host=${QWEN_CODE_HOST_OVERRIDE:-$QWEN_CODE_HOST}
+port=${QWEN_CODE_PORT_OVERRIDE:-$QWEN_CODE_PORT}
+
+# One background SSH connection per user carries the tunnel for every qwen-code window.
+# The forward is added through the control socket, so LocalForward entries in
+# ~/.ssh/config are neither started nor able to make the tunnel fail.
+socket_dir=${TMPDIR:-/tmp}
+socket_dir=${socket_dir%/}/qwen-code-$(id -u)
+control=$socket_dir/master
+mux() { ssh -F /dev/null -o ControlPath="$control" "$@" "$host"; }
+
+start_tunnel() {
+  mkdir -p -m 700 "$socket_dir"
+  if [[ ! -O $socket_dir ]]; then
+    echo "qwen-code: $socket_dir is not owned by you" >&2
+    return 1
+  fi
+  if ! mux -O check 2>/dev/null; then
+    rm -f "$control"
+    ssh -f -N -o ClearAllForwardings=yes -o ControlMaster=yes -o ControlPath="$control" \
+      -o ConnectTimeout=12 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 "$host" </dev/null ||
+      { echo "qwen-code: cannot connect to $host over SSH. Check: ssh $host" >&2; return 1; }
+  fi
+  mux -O forward -L "127.0.0.1:$port:127.0.0.1:8787" 2>/dev/null ||
+    { echo "qwen-code: local port $port is in use. Retry with QWEN_CODE_PORT_OVERRIDE=<free port>" >&2; return 1; }
+}
+
+case ${1:-} in
+  update)
+    exec bash -c 'ssh -n "$1" "cat $2/deploy/coding-agent/local/install.sh" | bash -s -- --host "$1" --port "$3" --server-dir "$2"' \
+      _ "$host" "$QWEN_CODE_SERVER_DIR" "$port"
+    ;;
+  tunnel)
+    case ${2:-status} in
+      status) mux -O check && echo "API: http://127.0.0.1:$port/v1" ;;
+      stop) mux -O exit ;;
+      *) echo "usage: qwen-code tunnel [status|stop]" >&2; exit 2 ;;
+    esac
+    exit
+    ;;
+esac
+
+# History, --help and --dry-run work without the tunnel; the client reports a missing model.
+start_tunnel || true
+export QWEN_CODE_LOCAL=1
+export QWEN_CODE_API=http://127.0.0.1:$port
+export QWEN_CODE_OPENCODE=$share/bin/opencode
+export QWEN_CODE_RUNTIME=$share/RUNTIME.md
+exec python3 "$share/client.py" "$@"

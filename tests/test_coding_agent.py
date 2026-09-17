@@ -6,8 +6,11 @@ import os
 import shlex
 import sqlite3
 import subprocess
+import sys
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -142,6 +145,109 @@ class CodingAgentTests(unittest.TestCase):
         threshold = limit["input"] - config["compaction"]["reserved"]
         self.assertLessEqual(threshold, 16384)
         self.assertLessEqual(threshold + limit["output"] + 6000, limit["context"])
+
+    def test_local_wrapper_tunnel_ignores_config_forwards(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            share = root / "share"
+            share.mkdir()
+            (share / "client.py").symlink_to(DEPLOY / "client.py")
+            (share / "config.env").write_text(
+                "QWEN_CODE_HOST=gpu\nQWEN_CODE_PORT=18787\nQWEN_CODE_SERVER_DIR=/srv\n"
+            )
+            log = root / "ssh.log"
+            stub = root / "ssh"
+            stub.write_text(
+                "#!/usr/bin/env python3\nimport sys,json\n"
+                f"open({str(log)!r},'a').write(json.dumps(sys.argv[1:])+'\\n')\n"
+                "sys.exit(1 if 'check' in sys.argv else 0)\n"
+            )
+            stub.chmod(0o755)
+            project = root / "project"
+            project.mkdir()
+            result = subprocess.run(
+                ["bash", str(DEPLOY / "local/qwen-code"), "--dry-run"],
+                cwd=project,
+                env={
+                    **os.environ,
+                    "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                    "QWEN_CODE_HOME": str(share),
+                    "TMPDIR": str(root),
+                    "XDG_DATA_HOME": str(root / "data"),
+                },
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertEqual(
+                json.loads(result.stdout)["directory"], str(project.resolve())
+            )
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            master = next(c for c in calls if "ControlMaster=yes" in c)
+            self.assertIn("ClearAllForwardings=yes", master)
+            self.assertNotIn("-L", master)
+            forward = next(c for c in calls if "forward" in c)
+            self.assertEqual(forward[:2], ["-F", "/dev/null"])
+            self.assertEqual(
+                forward[forward.index("-L") + 1], "127.0.0.1:18787:127.0.0.1:8787"
+            )
+            self.assertEqual(forward[-1], "gpu")
+
+    def test_local_client_uses_tunnel_api_and_refuses_server_apps(self):
+        class Health(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"status": "ok"}')
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Health)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        api = f"http://127.0.0.1:{server.server_address[1]}"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "opencode"
+            fake.write_text(
+                "#!/usr/bin/env python3\nimport os\nprint(os.environ['OPENCODE_CONFIG_CONTENT'])\n"
+            )
+            fake.chmod(0o755)
+            runtime = root / "RUNTIME.md"
+            runtime.write_text("local")
+            env = {
+                **os.environ,
+                "QWEN_CODE_LOCAL": "1",
+                "QWEN_CODE_API": api,
+                "QWEN_CODE_OPENCODE": str(fake),
+                "QWEN_CODE_RUNTIME": str(runtime),
+                "XDG_DATA_HOME": str(root / "data"),
+            }
+            client_py = str(DEPLOY / "client.py")
+            result = subprocess.run(
+                [sys.executable, client_py, "run", "hello"],
+                cwd=directory,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            config = json.loads(result.stdout)
+            self.assertEqual(
+                config["provider"]["hb-gpu-0"]["options"]["baseURL"], f"{api}/v1"
+            )
+            self.assertIn(str(runtime), config["instructions"])
+            refused = subprocess.run(
+                [sys.executable, client_py, "app", "start"],
+                cwd=directory,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(refused.returncode, 1)
+            self.assertIn("hb-gpu-0", refused.stderr)
 
 
 if __name__ == "__main__":
